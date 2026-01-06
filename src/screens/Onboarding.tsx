@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, Button, TextInput, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../supabase';
+import { useUserStore } from '../stores/userStore';
 
 export default function Onboarding() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigation = useNavigation();
+  const setUserId = useUserStore((state) => state.setUserId);
 
   const handleSignUp = async () => {
     if (!email || !password) {
@@ -22,6 +24,9 @@ export default function Onboarding() {
       Alert.alert('Sign Up Error', error.message);
     } else {
       Alert.alert('Success', 'Check your email for confirmation');
+      if (data.user?.id) {
+        setUserId(data.user.id);
+      }
       navigation.navigate('DealFeed' as never);
     }
   };
@@ -39,6 +44,9 @@ export default function Onboarding() {
       Alert.alert('Sign In Error', error.message);
     } else {
       Alert.alert('Success', 'Logged in successfully');
+      if (data.user?.id) {
+        setUserId(data.user.id);
+      }
       navigation.navigate('DealFeed' as never);
     }
   };
