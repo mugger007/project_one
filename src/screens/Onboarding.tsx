@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, Button, TextInput, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
 
 export default function Onboarding() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const navigation = useNavigation();
   const setUserId = useUserStore((state) => state.setUserId);
 
   const handleSignUp = async () => {
@@ -27,7 +25,7 @@ export default function Onboarding() {
       if (data.user?.id) {
         setUserId(data.user.id);
       }
-      navigation.navigate('DealFeed' as never);
+      // Navigation will happen automatically due to conditional rendering in App.tsx
     }
   };
 
@@ -47,7 +45,7 @@ export default function Onboarding() {
       if (data.user?.id) {
         setUserId(data.user.id);
       }
-      navigation.navigate('DealFeed' as never);
+      // Navigation will happen automatically due to conditional rendering in App.tsx
     }
   };
 

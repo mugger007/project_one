@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useUserStore } from '../stores/userStore';
+import { supabase } from '../supabase';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Settings() {
   const [gender, setGender] = useState('both');
@@ -11,6 +14,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
 
   const { loadUserSettings, saveUserSettings } = useUserStore();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadSettings();
@@ -53,16 +58,38 @@ export default function Settings() {
     setAge(originalSettings.age);
   };
 
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await supabase.auth.signOut();
+              navigation.navigate('Onboarding' as never);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingBottom: insets.bottom + 100 }]}>
         <Text style={styles.title}>Loading settings...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom + 100 }]}>
       <Text style={styles.title}>Settings</Text>
 
       <View style={styles.section}>
@@ -124,6 +151,12 @@ export default function Settings() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Save</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.logoutContainer}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -189,6 +222,23 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   saveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  logoutContainer: {
+    marginTop: 40,
+    alignItems: 'center',
+  },
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  logoutButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
