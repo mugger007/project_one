@@ -237,16 +237,14 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingBottom: insets.bottom + 100 }]}>
+      <View style={[styles.container, { paddingBottom: insets.bottom + 80 }]}>
         <Text style={styles.title}>Loading profile...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={[styles.container, { paddingBottom: insets.bottom + 100 }]}>
-      <Text style={styles.title}>Profile</Text>
-
+    <ScrollView style={[styles.container, { paddingBottom: insets.bottom + 80 }]}>
       <View style={styles.section}>
         <Text style={styles.label}>Name</Text>
         <TextInput
@@ -381,6 +379,12 @@ export default function Profile() {
         </View>
       </View>
 
+      {hasChanges() && (
+        <View style={styles.saveIndicator}>
+          <Text style={styles.saveText}>You have unsaved changes</Text>
+        </View>
+      )}
+
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -392,12 +396,6 @@ export default function Profile() {
           </Text>
         </TouchableOpacity>
       </View>
-
-      {hasChanges() && (
-        <View style={styles.saveIndicator}>
-          <Text style={styles.saveText}>You have unsaved changes</Text>
-        </View>
-      )}
     </ScrollView>
   );
 }
