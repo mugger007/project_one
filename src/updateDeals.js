@@ -3,9 +3,10 @@ const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const adminUserId = process.env.ADMIN_USER_ID;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase credentials in .env file');
+if (!supabaseUrl || !supabaseKey || !adminUserId) {
+  console.error('Missing Supabase credentials or admin user ID in .env file');
   process.exit(1);
 }
 
@@ -22,7 +23,7 @@ async function updateDeals() {
       deal_nature: 'Buy one coffee, get one 50% off',
       location: 'POINT(-74.006 40.7128)', // Example: New York City coordinates
       terms_conditions: 'Valid for hot beverages only. Cannot be combined with other offers.',
-      created_by: '00000000-0000-0000-0000-000000000000', // Replace with actual admin user UUID
+      created_by: adminUserId,
       is_active: new Date('2024-12-31T23:59:59Z') > now,
     },
     {
@@ -32,7 +33,7 @@ async function updateDeals() {
       deal_nature: '20% off on all pizzas',
       location: 'POINT(-87.6298 41.8781)', // Example: Chicago coordinates
       terms_conditions: 'Valid for dine-in only. Excludes delivery fees.',
-      created_by: '00000000-0000-0000-0000-000000000000', // Replace with actual admin user UUID
+      created_by: adminUserId,
       is_active: new Date('2024-02-28T23:59:59Z') > now,
     },
   ];
