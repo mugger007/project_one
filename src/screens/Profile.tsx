@@ -237,14 +237,14 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingBottom: insets.bottom + 80 }]}>
+      <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 120 }]}>
         <Text style={styles.title}>Loading profile...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={[styles.container, { paddingBottom: insets.bottom + 80 }]}>
+    <ScrollView style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 120 }]}>
       <View style={styles.section}>
         <Text style={styles.label}>Name</Text>
         <TextInput

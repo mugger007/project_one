@@ -1,14 +1,16 @@
 import React from 'react';
 import { View, Text, FlatList } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Matches() {
+  const insets = useSafeAreaInsets();
   const matches = [
     { id: '1', name: 'Match 1', status: 'Active' },
     { id: '2', name: 'Match 2', status: 'Pending' },
   ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F3F4F6' }}>
+    <View style={{ flex: 1, backgroundColor: '#F3F4F6', paddingTop: insets.top + 20 }}>
       <Text style={{ fontSize: 20, fontWeight: 'bold', padding: 16 }}>Matches</Text>
       <FlatList
         data={matches}

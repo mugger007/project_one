@@ -1,8 +1,10 @@
 import React from 'react';
 import { View } from 'react-native';
 import { GiftedChat, IMessage } from 'react-native-gifted-chat';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Chat() {
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = React.useState<IMessage[]>([
     {
       _id: 1,
@@ -21,7 +23,7 @@ export default function Chat() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, paddingTop: insets.top + 20 }}>
       <GiftedChat
         messages={messages}
         onSend={onSend}

@@ -82,14 +82,14 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingBottom: insets.bottom + 80 }]}>
+      <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 80 }]}>
         <Text style={styles.title}>Loading settings...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom + 80 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 80 }]}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Gender Preference</Text>
         <View style={styles.option}>

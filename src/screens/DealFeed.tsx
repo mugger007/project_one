@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Image, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Modal, Dimensions, FlatList } from 'react-native';
 import Swiper from 'react-native-deck-swiper';
 import { supabase } from '../supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface Deal {
   id: string;
@@ -23,12 +26,15 @@ interface DealImage {
 
 interface DealWithImage extends Deal {
   imageUrl?: string;
+  allImages?: string[];
 }
 
 export default function DealFeed() {
   const [deals, setDeals] = useState<DealWithImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [allSwiped, setAllSwiped] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState<DealWithImage | null>(null);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -61,19 +67,27 @@ export default function DealFeed() {
       // Combine deals with their primary images
       const dealsWithImages: DealWithImage[] = dealsData?.map((deal: Deal) => {
         const primaryImage = imagesData?.find((img: DealImage) => img.deal_id === deal.id && img.is_primary);
+        const allDealImages = imagesData?.filter((img: DealImage) => img.deal_id === deal.id) || [];
+        
         const imageUrl = primaryImage
           ? supabase.storage.from('deals_images').getPublicUrl(primaryImage.path).data.publicUrl
           : null;
 
+        const allImageUrls = allDealImages.map(img => 
+          supabase.storage.from('deals_images').getPublicUrl(img.path).data.publicUrl
+        );
+
         console.log(`Deal ${deal.merchant_name}:`, {
           dealId: deal.id,
           primaryImage: primaryImage ? primaryImage.path : 'NOT FOUND',
-          imageUrl: imageUrl || 'NULL'
+          imageUrl: imageUrl || 'NULL',
+          totalImages: allImageUrls.length
         });
 
         return {
           ...deal,
           imageUrl,
+          allImages: allImageUrls,
         };
       }).filter((deal): deal is DealWithImage => deal.imageUrl !== null && deal.imageUrl !== undefined) || [];
 
@@ -92,7 +106,14 @@ export default function DealFeed() {
     const endDate = new Date(deal.time_period_end).toLocaleDateString();
 
     return (
-      <View style={styles.card}>
+      <TouchableOpacity 
+        style={styles.card}
+        onPress={() => {
+          setSelectedDeal(deal);
+          setModalVisible(true);
+        }}
+        activeOpacity={0.9}
+      >
         <Image source={{ uri: deal.imageUrl }} style={styles.cardImage} />
         <View style={styles.cardContent}>
           <Text style={styles.merchantName}>{deal.merchant_name}</Text>
@@ -100,7 +121,7 @@ export default function DealFeed() {
             Valid: {startDate} - {endDate}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -184,6 +205,50 @@ export default function DealFeed() {
           animateCardOpacity
         />
       </View>
+
+      {/* Full Screen Image Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => setModalVisible(false)}
+          >
+            <Ionicons name="close" size={32} color="white" />
+          </TouchableOpacity>
+
+          {selectedDeal && selectedDeal.allImages && (
+            <FlatList
+              data={selectedDeal.allImages}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({ item }) => (
+                <View style={styles.imageSlide}>
+                  <Image 
+                    source={{ uri: item }} 
+                    style={styles.fullScreenImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
+            />
+          )}
+
+          {selectedDeal && (
+            <View style={styles.modalInfo}>
+              <Text style={styles.modalMerchantName}>{selectedDeal.merchant_name}</Text>
+              <Text style={styles.modalDealNature}>{selectedDeal.deal_nature}</Text>
+              <Text style={styles.modalTerms}>{selectedDeal.terms_conditions}</Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -204,7 +269,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
-    height: '95%',
+    height: '85%',
     borderRadius: 20,
     borderWidth: 2,
     borderColor: '#E5E7EB',
@@ -218,6 +283,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     overflow: 'hidden',
+    alignSelf: 'center',
+    width: '95%',
   },
   cardImage: {
     width: '100%',
@@ -256,5 +323,53 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  imageSlide: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.7,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: SCREEN_WIDTH,
+    height: '100%',
+  },
+  modalInfo: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalMerchantName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 8,
+  },
+  modalDealNature: {
+    fontSize: 18,
+    color: '#FFD700',
+    marginBottom: 8,
+  },
+  modalTerms: {
+    fontSize: 14,
+    color: '#CCCCCC',
   },
 });
