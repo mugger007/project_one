@@ -4,6 +4,7 @@ import Swiper from 'react-native-deck-swiper';
 import { supabase } from '../supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useUserStore } from '../stores/userStore';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -36,10 +37,43 @@ export default function DealFeed() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<DealWithImage | null>(null);
   const insets = useSafeAreaInsets();
+  const { userId } = useUserStore();
 
   useEffect(() => {
     fetchDeals();
-  }, []);
+    if (userId) {
+      checkForNewMatches();
+    }
+  }, [userId]);
+
+  const checkForNewMatches = async () => {
+    try {
+      // Query matches where current user is user2_id (they were matched by another user's swipe)
+      const { data: newMatches, error } = await supabase
+        .from('matches')
+        .select('id, deal_id, user1_id, user2_id, created_at')
+        .eq('user2_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error checking for new matches:', error);
+        return;
+      }
+
+      if (newMatches && newMatches.length > 0) {
+        const matchCount = newMatches.length;
+        const matchText = matchCount === 1 ? 'match' : 'matches';
+        
+        Alert.alert(
+          '🎉 New Matches!',
+          `You have ${matchCount} new ${matchText}! Check your Matches tab to see who you connected with.`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error in checkForNewMatches:', error);
+    }
+  };
 
   const fetchDeals = async () => {
     try {
@@ -51,8 +85,23 @@ export default function DealFeed() {
 
       if (dealsError) throw dealsError;
 
-      console.log('✅ Fetched deals:', dealsData?.length || 0, 'deals');
-      console.log('Deals data:', JSON.stringify(dealsData, null, 2));
+      // Fetch user's previous swipes
+      let swipedDealIds: string[] = [];
+      if (userId) {
+        const { data: swipesData, error: swipesError } = await supabase
+          .from('swipes')
+          .select('deal_id')
+          .eq('user_id', userId);
+
+        if (swipesError) {
+          console.error('Error fetching swipes:', swipesError);
+        } else {
+          swipedDealIds = swipesData?.map(swipe => swipe.deal_id) || [];
+        }
+      }
+
+      // Filter out already swiped deals
+      const unswipedDeals = dealsData?.filter(deal => !swipedDealIds.includes(deal.id)) || [];
 
       // Fetch deal images
       const { data: imagesData, error: imagesError } = await supabase
@@ -61,11 +110,8 @@ export default function DealFeed() {
 
       if (imagesError) throw imagesError;
 
-      console.log('✅ Fetched images:', imagesData?.length || 0, 'images');
-      console.log('Images data:', JSON.stringify(imagesData, null, 2));
-
       // Combine deals with their primary images
-      const dealsWithImages: DealWithImage[] = dealsData?.map((deal: Deal) => {
+      const dealsWithImages: DealWithImage[] = unswipedDeals?.map((deal: Deal) => {
         const primaryImage = imagesData?.find((img: DealImage) => img.deal_id === deal.id && img.is_primary);
         const allDealImages = imagesData?.filter((img: DealImage) => img.deal_id === deal.id) || [];
         
@@ -77,13 +123,6 @@ export default function DealFeed() {
           supabase.storage.from('deals_images').getPublicUrl(img.path).data.publicUrl
         );
 
-        console.log(`Deal ${deal.merchant_name}:`, {
-          dealId: deal.id,
-          primaryImage: primaryImage ? primaryImage.path : 'NOT FOUND',
-          imageUrl: imageUrl || 'NULL',
-          totalImages: allImageUrls.length
-        });
-
         return {
           ...deal,
           imageUrl,
@@ -91,7 +130,7 @@ export default function DealFeed() {
         };
       }).filter((deal): deal is DealWithImage => deal.imageUrl !== null && deal.imageUrl !== undefined) || [];
 
-      console.log('✅ Final deals with images:', dealsWithImages.length);
+
       setDeals(dealsWithImages);
     } catch (error) {
       console.error('❌ Error fetching deals:', error);
@@ -125,8 +164,96 @@ export default function DealFeed() {
     );
   };
 
-  const onSwiped = (index: number) => {
-    console.log(`Swiped deal ${deals[index]?.merchant_name}`);
+  const logSwipe = async (dealId: string, direction: 'left' | 'right') => {
+    if (!userId) {
+      console.error('No user ID available for swipe logging');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('swipes')
+        .insert({
+          user_id: userId,
+          deal_id: dealId,
+          direction: direction,
+        });
+
+      if (error) {
+        console.error('Error logging swipe:', error);
+      }
+    } catch (error) {
+      console.error('Error logging swipe:', error);
+    }
+  };
+
+  const checkForMatch = async (dealId: string) => {
+    if (!userId) {
+      console.error('No user ID available for match checking');
+      return;
+    }
+
+    try {
+      // Check if another user has also swiped right on the same deal
+      const { data: matchingSwipes, error: swipesError } = await supabase
+        .from('swipes')
+        .select('user_id, created_at')
+        .eq('deal_id', dealId)
+        .eq('direction', 'right')
+        .neq('user_id', userId);
+
+      if (swipesError) {
+        console.error('Error checking for matches:', swipesError);
+        return;
+      }
+
+      if (matchingSwipes && matchingSwipes.length > 0) {
+        // Found at least one matching user
+        const matchedUserId = matchingSwipes[0].user_id;
+
+        // Insert match into matches table
+        const { error: matchError } = await supabase
+          .from('matches')
+          .insert({
+            user1_id: userId,
+            user2_id: matchedUserId,
+            deal_id: dealId,
+          });
+
+        if (matchError) {
+          console.error('Error creating match:', matchError);
+        } else {
+          // Notify the current user
+          Alert.alert(
+            '🎉 It\'s a Match!',
+            'You and another user both liked this deal! Check your Matches to connect.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkForMatch:', error);
+    }
+  };
+
+  const onSwipedLeft = (index: number) => {
+    const deal = deals[index];
+    if (deal) {
+      logSwipe(deal.id, 'left');
+    }
+  };
+
+  const onSwipedRight = async (index: number) => {
+    const deal = deals[index];
+    if (deal) {
+      // Wait for swipe to be logged before checking for matches
+      await logSwipe(deal.id, 'right');
+      
+      // Small delay to ensure database transaction is committed
+      setTimeout(() => {
+        checkForMatch(deal.id);
+      }, 500);
+    }
   };
 
   const onSwipedAll = () => {
@@ -157,7 +284,8 @@ export default function DealFeed() {
         <Swiper
           cards={deals}
           renderCard={renderCard}
-          onSwiped={onSwiped}
+          onSwipedLeft={onSwipedLeft}
+          onSwipedRight={onSwipedRight}
           onSwipedAll={onSwipedAll}
           cardIndex={0}
           backgroundColor="transparent"
