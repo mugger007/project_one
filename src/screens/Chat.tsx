@@ -3,8 +3,14 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { GiftedChat, IMessage } from 'react-native-gifted-chat';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
+import {
+  loadChatMessages,
+  sendChatMessage,
+  subscribeToChatMessages,
+  broadcastMessage,
+  unsubscribeFromChat,
+} from '../services/chatService';
 
 export default function Chat({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -12,119 +18,61 @@ export default function Chat({ route, navigation }: any) {
   const { userId } = useUserStore();
   
   const [messages, setMessages] = React.useState<IMessage[]>([]);
+  const channelRef = React.useRef<any>(null);
 
   useEffect(() => {
     loadMessages();
-    subscribeToMessages();
-  }, []);
+    
+    let channelData: any;
+    
+    const setupSubscription = async () => {
+      channelData = await subscribeToChatMessages(
+        match.id,
+        userId!,
+        match.matchedUserName,
+        (newMessage) => {
+          setMessages((prevMessages) => {
+            const exists = prevMessages.some(msg => msg._id === newMessage._id);
+            if (exists) return prevMessages;
+            return GiftedChat.append(prevMessages, [newMessage]);
+          });
+        }
+      );
+      channelRef.current = channelData.channel;
+    };
+    
+    setupSubscription();
+    
+    return () => {
+      if (channelData?.channel) {
+        unsubscribeFromChat(channelData.channel);
+      }
+    };
+  }, [match.id, userId, match.matchedUserName]);
 
   const loadMessages = async () => {
-    console.log('📥 Loading messages for match:', match.id);
-    
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('match_id', match.id)
-        .order('created_at', { ascending: false });
-
-      console.log('📊 Load messages result:', { data, error, count: data?.length });
-
-      if (error) throw error;
-
-      if (data) {
-        const formattedMessages = data.map((msg: any) => ({
-          _id: msg.id,
-          text: msg.text,
-          createdAt: new Date(msg.created_at),
-          user: {
-            _id: msg.sender_id,
-            name: msg.sender_id === userId ? 'You' : match.matchedUserName,
-          },
-        }));
-        console.log('✅ Formatted messages:', formattedMessages.length);
-        setMessages(formattedMessages);
-      }
+      const chatMessages = await loadChatMessages(match.id, userId!, match.matchedUserName);
+      setMessages(chatMessages);
     } catch (error) {
-      console.error('❌ Error loading messages:', error);
+      console.error('Error loading messages:', error);
     }
   };
 
-  const subscribeToMessages = () => {
-    console.log('🔔 Subscribing to messages for match:', match.id);
-    
-    const channel = supabase
-      .channel(`match:${match.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `match_id=eq.${match.id}`,
-        },
-        (payload) => {
-          console.log('📨 Received new message via realtime:', payload);
-          const newMessage = payload.new as any;
-          
-          // Only add if not already in messages (prevent duplicates)
-          setMessages(prevMessages => {
-            const exists = prevMessages.some(msg => msg._id === newMessage.id);
-            if (exists) return prevMessages;
-
-            const formattedMessage: IMessage = {
-              _id: newMessage.id,
-              text: newMessage.text,
-              createdAt: new Date(newMessage.created_at),
-              user: {
-                _id: newMessage.sender_id,
-                name: newMessage.sender_id === userId ? 'You' : match.matchedUserName,
-              },
-            };
-            return GiftedChat.append(prevMessages, [formattedMessage]);
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
-
-  const onSend = useCallback(async (messages: IMessage[] = []) => {
-    const message = messages[0];
-    
-    console.log('📤 Attempting to send message:', {
-      match_id: match.id,
-      sender_id: userId,
-      text: message.text,
-      message: message
-    });
+  const onSend = useCallback(async (newMessages: IMessage[] = []) => {
+    const message = newMessages[0];
     
     // Optimistically add message to UI immediately
-    setMessages(previousMessages => GiftedChat.append(previousMessages, messages));
+    setMessages((previousMessages) => GiftedChat.append(previousMessages, newMessages));
     
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          match_id: match.id,
-          sender_id: userId,
-          text: message.text,
-        })
-        .select();
-
-      console.log('📊 Supabase insert result:', { data, error });
-
-      if (error) {
-        console.error('❌ Error sending message:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-      } else {
-        console.log('✅ Message sent successfully:', data);
+      const savedMessage = await sendChatMessage(match.id, userId!, message.text);
+      
+      if (savedMessage && channelRef.current) {
+        broadcastMessage(channelRef.current, savedMessage);
       }
     } catch (error) {
-      console.error('❌ Exception sending message:', error);
+      console.error('Error sending message:', error);
     }
   }, [match.id, userId]);
 
@@ -163,6 +111,8 @@ export default function Chat({ route, navigation }: any) {
         user={{
           _id: userId || '1',
         }}
+        showUserAvatar={false}
+        renderDay={() => null}
       />
     </View>
   );
