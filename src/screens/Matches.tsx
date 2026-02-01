@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserStore } from '../stores/userStore';
 import { fetchUserMatches, Match } from '../services/matchesService';
 
-export default function Matches() {
+export default function Matches({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { userId } = useUserStore();
   const [matches, setMatches] = useState<Match[]>([]);
@@ -23,7 +23,10 @@ export default function Matches() {
   };
 
   const renderMatch = ({ item }: { item: Match }) => (
-    <TouchableOpacity style={styles.matchCard}>
+    <TouchableOpacity 
+      style={styles.matchCard}
+      onPress={() => navigation.navigate('Chat', { match: item })}
+    >
       <View style={styles.matchRow}>
         {item.dealImageUrl ? (
           <Image 

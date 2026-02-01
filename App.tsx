@@ -18,6 +18,16 @@ import Profile from './src/screens/Profile';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const MatchesStack = createStackNavigator();
+
+function MatchesNavigator() {
+  return (
+    <MatchesStack.Navigator screenOptions={{ headerShown: false }}>
+      <MatchesStack.Screen name="MatchesList" component={Matches} />
+      <MatchesStack.Screen name="Chat" component={Chat} />
+    </MatchesStack.Navigator>
+  );
+}
 
 function TabNavigator() {
   return (
@@ -31,8 +41,6 @@ function TabNavigator() {
             iconName = 'list-outline';
           } else if (route.name === 'Matches') {
             iconName = 'heart-outline';
-          } else if (route.name === 'Chat') {
-            iconName = 'chatbubble-outline';
           } else if (route.name === 'Settings') {
             iconName = 'settings-outline';
           } else if (route.name === 'Profile') {
@@ -48,8 +56,7 @@ function TabNavigator() {
       })}
     >
       <Tab.Screen name="DealFeed" component={DealFeed} />
-      <Tab.Screen name="Matches" component={Matches} />
-      <Tab.Screen name="Chat" component={Chat} />
+      <Tab.Screen name="Matches" component={MatchesNavigator} />
       <Tab.Screen name="Settings" component={Settings} />
       <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>
