@@ -7,6 +7,8 @@ CREATE OR REPLACE FUNCTION check_user_compatibility(
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
 AS $$
 DECLARE
   user1_record RECORD;
@@ -21,7 +23,7 @@ BEGIN
     match_settings,
     location
   INTO user1_record
-  FROM users
+  FROM public.users
   WHERE id = user1_id;
   
   SELECT 
@@ -29,7 +31,7 @@ BEGIN
     match_settings,
     location
   INTO user2_record
-  FROM users
+  FROM public.users
   WHERE id = user2_id;
   
   -- If either user doesn't exist or has no settings, no match
@@ -78,7 +80,7 @@ BEGIN
      (user1_record.match_settings->>'gender') != 'both' THEN
     -- Get user2's actual gender from users table
     IF NOT EXISTS (
-      SELECT 1 FROM users 
+      SELECT 1 FROM public.users 
       WHERE id = user2_id 
       AND (gender = (user1_record.match_settings->>'gender') OR gender IS NULL)
     ) THEN
@@ -90,7 +92,7 @@ BEGIN
   IF (user2_record.match_settings->>'gender') IS NOT NULL AND
      (user2_record.match_settings->>'gender') != 'both' THEN
     IF NOT EXISTS (
-      SELECT 1 FROM users 
+      SELECT 1 FROM public.users 
       WHERE id = user1_id 
       AND (gender = (user2_record.match_settings->>'gender') OR gender IS NULL)
     ) THEN
@@ -101,9 +103,10 @@ BEGIN
   -- Check distance compatibility (if both have locations)
   IF user1_record.location IS NOT NULL AND user2_record.location IS NOT NULL THEN
     -- Calculate distance in kilometers using PostGIS
+    -- Location is already geography type, no need to cast
     distance_km := ST_Distance(
-      user1_record.location::geography,
-      user2_record.location::geography
+      user1_record.location,
+      user2_record.location
     ) / 1000.0;
     
     -- Check against both users' distance preferences
@@ -126,21 +129,20 @@ END;
 $$;
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_users_match_settings ON users USING GIN (match_settings);
-CREATE INDEX IF NOT EXISTS idx_users_location ON users USING GIST (location);
-CREATE INDEX IF NOT EXISTS idx_users_dob ON users (dob);
-CREATE INDEX IF NOT EXISTS idx_users_gender ON users (gender);
+CREATE INDEX IF NOT EXISTS idx_users_match_settings ON public.users USING GIN (match_settings);
+CREATE INDEX IF NOT EXISTS idx_users_location ON public.users USING GIST (location);
+CREATE INDEX IF NOT EXISTS idx_users_dob ON public.users (dob);
+CREATE INDEX IF NOT EXISTS idx_users_gender ON public.users (gender);
 
 -- Create a materialized view for pre-computed compatible user pairs (optional optimization)
--- Refresh this periodically or when match_settings change
 CREATE MATERIALIZED VIEW IF NOT EXISTS user_compatibility_cache AS
 SELECT 
   u1.id as user1_id,
   u2.id as user2_id,
   check_user_compatibility(u1.id, u2.id) as is_compatible
-FROM users u1
-CROSS JOIN users u2
-WHERE u1.id < u2.id  -- Only store one direction to avoid duplicates
+FROM public.users u1
+CROSS JOIN public.users u2
+WHERE u1.id < u2.id
   AND u1.match_settings IS NOT NULL
   AND u2.match_settings IS NOT NULL;
 
@@ -149,24 +151,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_user_compatibility_cache
 ON user_compatibility_cache (user1_id, user2_id);
 
 -- Function to refresh compatibility cache for a specific user
--- Call this when a user updates their match_settings
 CREATE OR REPLACE FUNCTION refresh_user_compatibility_cache(target_user_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
 AS $$
 BEGIN
-  -- Delete old entries
-  DELETE FROM user_compatibility_cache
-  WHERE user1_id = target_user_id OR user2_id = target_user_id;
-  
-  -- Insert new entries
-  INSERT INTO user_compatibility_cache
-  SELECT 
-    LEAST(target_user_id, u.id),
-    GREATEST(target_user_id, u.id),
-    check_user_compatibility(target_user_id, u.id)
-  FROM users u
-  WHERE u.id != target_user_id
-    AND u.match_settings IS NOT NULL;
+  -- Simply refresh the entire materialized view
+  -- This is more efficient than trying to update specific rows
+  REFRESH MATERIALIZED VIEW CONCURRENTLY user_compatibility_cache;
 END;
 $$;

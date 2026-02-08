@@ -49,13 +49,22 @@ export const saveMatchSettings = async (
     }
 
     // Refresh compatibility cache after updating settings
-    const { error: cacheError } = await supabase.rpc('refresh_user_compatibility_cache', {
+    console.log('Starting compatibility cache refresh for user:', userId);
+    const { data: refreshData, error: cacheError } = await supabase.rpc('refresh_user_compatibility_cache', {
       target_user_id: userId,
     });
 
     if (cacheError) {
-      console.error('Warning: Failed to refresh compatibility cache:', cacheError);
+      console.error('Failed to refresh compatibility cache:', {
+        error: cacheError,
+        code: cacheError.code,
+        message: cacheError.message,
+        details: cacheError.details,
+        hint: cacheError.hint,
+      });
       // Don't fail the operation if cache refresh fails
+    } else {
+      console.log('Compatibility cache refresh successful:', refreshData);
     }
 
     return { success: true };
