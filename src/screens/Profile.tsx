@@ -11,20 +11,14 @@ import {
   Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as Location from 'expo-location';
 import { useUserStore } from '../stores/userStore';
-import { supabase } from '../supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-interface UserProfile {
-  name: string;
-  dob: string;
-  gender: string;
-  email: string;
-  phone: string;
-  location: string;
-  notification_settings: boolean;
-}
+import {
+  UserProfile,
+  loadUserProfile,
+  saveUserProfile,
+  getCurrentLocation,
+} from '../services/profileService';
 
 interface ValidationErrors {
   name?: string;
@@ -54,79 +48,31 @@ export default function Profile() {
 
   useEffect(() => {
     loadProfile();
-    getCurrentLocation();
+    fetchCurrentLocation();
   }, []);
-
-  // Remove auto-save useEffect
 
   const loadProfile = async () => {
     if (!userId) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('name, dob, gender, email, phone, location, notification_settings')
-        .eq('id', userId)
-        .single();
+    const loadedProfile = await loadUserProfile(userId);
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Error loading profile:', error);
-        return;
-      }
-
-      if (data) {
-        const loadedProfile = {
-          name: data.name || '',
-          dob: data.dob || '',
-          gender: data.gender || 'prefer_not_to_say',
-          email: data.email || '',
-          phone: data.phone || '',
-          location: data.location || '',
-          notification_settings: data.notification_settings ?? true,
-        };
-        setProfile(loadedProfile);
-        setOriginalProfile(loadedProfile);
-        setValidationErrors({}); // Clear any validation errors for loaded data
-      } else {
-        // If no data exists, set defaults
-        const defaultProfile = {
-          name: '',
-          dob: '',
-          gender: 'prefer_not_to_say',
-          email: '',
-          phone: '',
-          location: '',
-          notification_settings: true,
-        };
-        setProfile(defaultProfile);
-        setOriginalProfile(defaultProfile);
-      }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
+    if (loadedProfile) {
+      setProfile(loadedProfile);
+      setOriginalProfile(loadedProfile);
+      setValidationErrors({});
     }
+
+    setLoading(false);
   };
 
-  const getCurrentLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Location permission is required to get your current location.');
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      const { latitude, longitude } = location.coords;
-
-      // Store coordinates as location string
-      const locationString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-      setProfile(prev => ({ ...prev, location: locationString }));
-      
+  const fetchCurrentLocation = async () => {
+    const result = await getCurrentLocation();
+    
+    if (result.location) {
+      setProfile(prev => ({ ...prev, location: result.location }));
       Alert.alert('Location Updated', 'Your location has been updated successfully.');
-    } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Error', 'Failed to get your current location. Please try again.');
+    } else if (result.error) {
+      Alert.alert('Permission denied', result.error);
     }
   };
 
@@ -145,52 +91,25 @@ export default function Profile() {
       errors.phone = validatePhone(profile.phone.trim());
     }
 
-    // Update validation errors state
     setValidationErrors(errors);
 
-    // If there are validation errors, don't save
     if (Object.keys(errors).length > 0) {
       Alert.alert('Validation Error', 'Please fix the validation errors before saving.');
       return;
     }
 
     setSaving(true);
-    try {
-      const updateData: any = {
-        id: userId,
-        gender: profile.gender,
-        notification_settings: profile.notification_settings,
-      };
 
-      // Only include non-empty fields
-      if (profile.name.trim()) updateData.name = profile.name.trim();
-      if (profile.dob) updateData.dob = profile.dob;
-      if (profile.email.trim()) updateData.email = profile.email.trim();
-      if (profile.phone.trim()) updateData.phone = profile.phone.trim();
+    const result = await saveUserProfile(userId, profile);
 
-      // Handle location (geography type) separately
-      if (profile.location.trim()) {
-        const [lat, lon] = profile.location.split(',').map(coord => coord.trim());
-        if (lat && lon) {
-          // Use PostGIS function to create geography point
-          updateData.location = `SRID=4326;POINT(${lon} ${lat})`;
-        }
-      }
-
-      const { error } = await supabase
-        .from('users')
-        .upsert(updateData);
-
-      if (error) throw error;
-
+    if (result.success) {
       setOriginalProfile(profile);
       Alert.alert('Success', 'Profile updated successfully!');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
-    } finally {
-      setSaving(false);
+    } else {
+      Alert.alert('Error', result.error || 'Failed to save profile. Please try again.');
     }
+
+    setSaving(false);
   };
 
   const hasChanges = () => {
@@ -360,7 +279,7 @@ export default function Profile() {
       <View style={styles.section}>
         <View style={styles.locationHeader}>
           <Text style={styles.label}>Location</Text>
-          <TouchableOpacity onPress={getCurrentLocation}>
+          <TouchableOpacity onPress={fetchCurrentLocation}>
             <Text style={styles.refreshText}>Refresh</Text>
           </TouchableOpacity>
         </View>

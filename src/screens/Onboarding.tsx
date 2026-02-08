@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Button, TextInput, Alert } from 'react-native';
-import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
+import { signUp, signIn, signInWithOAuth } from '../services/authService';
 
 export default function Onboarding() {
   const [email, setEmail] = useState('');
@@ -13,19 +13,16 @@ export default function Onboarding() {
       Alert.alert('Error', 'Please enter email and password');
       return;
     }
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name: 'User', gender: 'unknown' } }
-    });
-    if (error) {
-      Alert.alert('Sign Up Error', error.message);
+
+    const result = await signUp(email, password);
+    
+    if (result.error) {
+      Alert.alert('Sign Up Error', result.error);
     } else {
       Alert.alert('Success', 'Check your email for confirmation');
-      if (data.user?.id) {
-        setUserId(data.user.id);
+      if (result.userId) {
+        setUserId(result.userId);
       }
-      // Navigation will happen automatically due to conditional rendering in App.tsx
     }
   };
 
@@ -34,28 +31,24 @@ export default function Onboarding() {
       Alert.alert('Error', 'Please enter email and password');
       return;
     }
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      Alert.alert('Sign In Error', error.message);
+
+    const result = await signIn(email, password);
+    
+    if (result.error) {
+      Alert.alert('Sign In Error', result.error);
     } else {
       Alert.alert('Success', 'Logged in successfully');
-      if (data.user?.id) {
-        setUserId(data.user.id);
+      if (result.userId) {
+        setUserId(result.userId);
       }
-      // Navigation will happen automatically due to conditional rendering in App.tsx
     }
   };
 
   const handleSocialLogin = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-    if (error) {
-      Alert.alert('Social Login Error', error.message);
-    } else {
-      // For OAuth, navigation might happen after redirect
-      // navigation.navigate('DealFeed' as never);
+    const result = await signInWithOAuth('google');
+    
+    if (result.error) {
+      Alert.alert('Social Login Error', result.error);
     }
   };
 
