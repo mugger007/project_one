@@ -119,15 +119,14 @@ export default function Profile() {
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
 
-      // Reverse geocode to get address
-      const address = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (address.length > 0) {
-        const addr = address[0];
-        const locationString = `${addr.city || ''}, ${addr.region || ''}, ${addr.country || ''}`.replace(/^, |, $/g, '');
-        setProfile(prev => ({ ...prev, location: locationString }));
-      }
+      // Store coordinates as location string
+      const locationString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      setProfile(prev => ({ ...prev, location: locationString }));
+      
+      Alert.alert('Location Updated', 'Your location has been updated successfully.');
     } catch (error) {
       console.error('Error getting location:', error);
+      Alert.alert('Error', 'Failed to get your current location. Please try again.');
     }
   };
 
@@ -168,8 +167,15 @@ export default function Profile() {
       if (profile.dob) updateData.dob = profile.dob;
       if (profile.email.trim()) updateData.email = profile.email.trim();
       if (profile.phone.trim()) updateData.phone = profile.phone.trim();
-      // Skip location for now to avoid geometry errors
-      // if (profile.location.trim()) updateData.location = profile.location.trim();
+
+      // Handle location (geography type) separately
+      if (profile.location.trim()) {
+        const [lat, lon] = profile.location.split(',').map(coord => coord.trim());
+        if (lat && lon) {
+          // Use PostGIS function to create geography point
+          updateData.location = `SRID=4326;POINT(${lon} ${lat})`;
+        }
+      }
 
       const { error } = await supabase
         .from('users')
