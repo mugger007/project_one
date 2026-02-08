@@ -45,27 +45,63 @@ export const checkForMatch = async (userId: string | null, dealId: string) => {
     }
 
     if (matchingSwipes && matchingSwipes.length > 0) {
-      // Found at least one matching user
-      const matchedUserId = matchingSwipes[0].user_id;
+      // Check each potential match for compatibility
+      for (const swipe of matchingSwipes) {
+        const matchedUserId = swipe.user_id;
 
-      // Insert match into matches table
-      const { error: matchError } = await supabase
-        .from('matches')
-        .insert({
-          user1_id: userId,
-          user2_id: matchedUserId,
-          deal_id: dealId,
-        });
-
-      if (matchError) {
-        console.error('Error creating match:', matchError);
-      } else {
-        // Notify the current user
-        Alert.alert(
-          '🎉 It\'s a Match!',
-          'You and another user both liked this deal! Check your Matches to connect.',
-          [{ text: 'OK' }]
+        // Check compatibility using the database function
+        const { data: isCompatible, error: compatError } = await supabase.rpc(
+          'check_user_compatibility',
+          {
+            user1_id: userId,
+            user2_id: matchedUserId,
+          }
         );
+
+        if (compatError) {
+          console.error('Error checking compatibility:', compatError);
+          continue;
+        }
+
+        // Skip if users are not compatible
+        if (!isCompatible) {
+          continue;
+        }
+
+        // Check if match already exists to avoid duplicates
+        const { data: existingMatch, error: existingError } = await supabase
+          .from('matches')
+          .select('id')
+          .or(`and(user1_id.eq.${userId},user2_id.eq.${matchedUserId},deal_id.eq.${dealId}),and(user1_id.eq.${matchedUserId},user2_id.eq.${userId},deal_id.eq.${dealId})`)
+          .maybeSingle();
+
+        if (existingError) {
+          console.error('Error checking existing match:', existingError);
+          continue;
+        }
+
+        // If no existing match and users are compatible, create the match
+        if (!existingMatch) {
+          const { error: matchError } = await supabase
+            .from('matches')
+            .insert({
+              user1_id: userId,
+              user2_id: matchedUserId,
+              deal_id: dealId,
+            });
+
+          if (matchError) {
+            console.error('Error creating match:', matchError);
+          } else {
+            // Notify the current user
+            Alert.alert(
+              '🎉 It\'s a Match!',
+              'You and another user both liked this deal! Check your Matches to connect.',
+              [{ text: 'OK' }]
+            );
+            return; // Exit after first successful match
+          }
+        }
       }
     }
   } catch (error) {

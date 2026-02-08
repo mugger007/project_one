@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import Slider from '@react-native-community/slider';
+import RangeSlider from 'rn-range-slider';
 import { useUserStore } from '../stores/userStore';
-import { supabase } from '../supabase';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { loadMatchSettings, saveMatchSettings, logout } from '../services/settingsService';
 
 export default function Settings() {
   const [gender, setGender] = useState('both');
   const [distance, setDistance] = useState(50);
-  const [age, setAge] = useState(25);
-  const [originalSettings, setOriginalSettings] = useState({ gender: 'both', distance: 50, age: 25 });
+  const [minAge, setMinAge] = useState(21);
+  const [maxAge, setMaxAge] = useState(35);
+  const [originalSettings, setOriginalSettings] = useState({ gender: 'both', distance: 50, minAge: 21, maxAge: 35 });
   const [loading, setLoading] = useState(true);
 
-  const { loadUserSettings, saveUserSettings } = useUserStore();
+  const { userId } = useUserStore();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
@@ -22,16 +24,20 @@ export default function Settings() {
   }, []);
 
   const loadSettings = async () => {
+    if (!userId) return;
+
     try {
-      const settings = await loadUserSettings();
+      const settings = await loadMatchSettings(userId);
       if (settings) {
         setGender(settings.gender || 'both');
         setDistance(settings.distance || 50);
-        setAge(settings.age || 25);
+        setMinAge(settings.minAge || 21);
+        setMaxAge(settings.maxAge || 35);
         setOriginalSettings({
           gender: settings.gender || 'both',
           distance: settings.distance || 50,
-          age: settings.age || 25,
+          minAge: settings.minAge || 21,
+          maxAge: settings.maxAge || 35,
         });
       }
     } catch (error) {
@@ -42,12 +48,25 @@ export default function Settings() {
   };
 
   const handleSave = async () => {
+    if (!userId) return;
+
+    if (minAge > maxAge) {
+      Alert.alert('Invalid Range', 'Minimum age must be less than or equal to maximum age.');
+      return;
+    }
+
     try {
-      const settings = { gender, distance, age };
-      await saveUserSettings(settings);
-      setOriginalSettings(settings);
-      Alert.alert('Success', 'Settings saved successfully!');
+      const settings = { gender, distance, minAge, maxAge };
+      const result = await saveMatchSettings(userId, settings);
+
+      if (result.success) {
+        setOriginalSettings(settings);
+        Alert.alert('Success', 'Settings saved successfully!');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to save settings. Please try again.');
+      }
     } catch (error) {
+      console.error('Error saving settings:', error);
       Alert.alert('Error', 'Failed to save settings. Please try again.');
     }
   };
@@ -55,7 +74,8 @@ export default function Settings() {
   const handleCancel = () => {
     setGender(originalSettings.gender);
     setDistance(originalSettings.distance);
-    setAge(originalSettings.age);
+    setMinAge(originalSettings.minAge);
+    setMaxAge(originalSettings.maxAge);
   };
 
   const handleLogout = async () => {
@@ -68,11 +88,11 @@ export default function Settings() {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            try {
-              await supabase.auth.signOut();
+            const result = await logout();
+            if (result.success) {
               navigation.navigate('Onboarding' as never);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to logout. Please try again.');
+            } else {
+              Alert.alert('Error', result.error || 'Failed to logout. Please try again.');
             }
           }
         }
@@ -130,16 +150,23 @@ export default function Settings() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Age: {age}</Text>
-        <Slider
-          style={styles.slider}
-          minimumValue={18}
-          maximumValue={99}
+        <Text style={styles.sectionTitle}>Age Range: {minAge} - {maxAge}</Text>
+        <RangeSlider
+          style={styles.rangeSlider}
+          min={18}
+          max={99}
           step={1}
-          value={age}
-          onValueChange={setAge}
-          minimumTrackTintColor="#007AFF"
-          maximumTrackTintColor="#CCCCCC"
+          low={minAge}
+          high={maxAge}
+          floatingLabel
+          renderThumb={() => <View style={styles.thumb} />}
+          renderRail={() => <View style={styles.rail} />}
+          renderRailSelected={() => <View style={styles.railSelected} />}
+          renderLabel={(value) => <Text style={styles.label}>{String(Math.round(value || 0))}</Text>}
+          onValueChanged={(low, high) => {
+            setMinAge(Math.round(low));
+            setMaxAge(Math.round(high));
+          }}
         />
       </View>
 
@@ -190,6 +217,52 @@ const styles = StyleSheet.create({
   slider: {
     width: '100%',
     height: 40,
+  },
+  ageRangeContainer: {
+    marginTop: 10,
+  },
+  ageSliderGroup: {
+    marginBottom: 15,
+  },
+  ageLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 5,
+  },
+  rangeSlider: {
+    width: '100%',
+    height: 60,
+    marginTop: 10,
+  },
+  thumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#007AFF',
+    borderWidth: 2,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  rail: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CCCCCC',
+  },
+  railSelected: {
+    height: 4,
+    backgroundColor: '#007AFF',
+    borderRadius: 2,
+  },
+  label: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '600',
+    marginTop: 5,
   },
   buttonContainer: {
     flexDirection: 'row',
