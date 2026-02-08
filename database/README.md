@@ -2,6 +2,13 @@
 
 This directory contains SQL functions and optimizations for the matching system.
 
+## Prerequisites
+
+**Enable PostGIS Extension:**
+```sql
+CREATE EXTENSION IF NOT EXISTS postgis;
+```
+
 ## Setup Instructions
 
 Run these SQL files in your Supabase SQL Editor in order:
@@ -12,7 +19,9 @@ Creates the compatibility checking system with the following components:
 
 **Function: `check_user_compatibility(user1_id, user2_id)`**
 - Checks if two users are compatible based on their match_settings
-- Validates: age preference (±5 years), gender preference, distance (km)
+- Validates: age range (minAge/maxAge), gender preference, distance (km)
+- Uses PostGIS ST_Distance for geographic calculations
+- Security: DEFINER with search_path set to public, extensions
 - Returns: BOOLEAN
 
 **Materialized View: `user_compatibility_cache`**
@@ -21,7 +30,9 @@ Creates the compatibility checking system with the following components:
 - Significantly improves match checking performance
 
 **Function: `refresh_user_compatibility_cache(target_user_id)`**
-- Updates compatibility cache for a specific user
+- Refreshes the entire materialized view (ignores target_user_id parameter)
+- Uses REFRESH MATERIALIZED VIEW CONCURRENTLY for non-blocking updates
+- Security: DEFINER with search_path set to public, extensions
 - Call this after a user updates their match preferences
 
 **Indexes:**
@@ -77,12 +88,19 @@ The `match_settings` JSONB field should have this structure:
 
 ```json
 {
-  "minAge": 21,        // Minimum age preference
-  "maxAge": 35,        // Maximum age preference
-  "gender": "both",    // "male", "female", "both", or "any"
-  "distance": 50       // Maximum distance in kilometers
+  "minAge": 21,        // Minimum age preference (18-99)
+  "maxAge": 35,        // Maximum age preference (18-99)
+  "gender": "both",    // "male", "female", or "both"
+  "distance": 50       // Maximum distance in kilometers (1-100)
 }
 ```
+
+## Location Data
+
+The `location` column uses PostGIS `geography` type:
+- Format: `SRID=4326;POINT(longitude latitude)`
+- Example: `SRID=4326;POINT(-122.4194 37.7749)` for San Francisco
+- ST_Distance returns meters, divided by 1000 for kilometers
 
 ## Notes
 
