@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
 import * as Location from 'expo-location';
-import { awardPoints, ActivityType } from './pointsService';
+import { awardPoints, ActivityType, hasEarnedPoints } from './pointsService';
 
 export interface UserProfile {
   name: string;
@@ -98,6 +98,7 @@ export const saveUserProfile = async (userId: string, profile: UserProfile): Pro
     }
 
     // Award points for completing profile (if all key fields are filled)
+    // Only award once - check if user has already earned profile completion points
     const isProfileComplete = 
       profile.name.trim() !== '' &&
       profile.dob !== '' &&
@@ -105,7 +106,10 @@ export const saveUserProfile = async (userId: string, profile: UserProfile): Pro
       profile.location.trim() !== '';
 
     if (isProfileComplete) {
-      await awardPoints(userId, ActivityType.COMPLETE_PROFILE);
+      const alreadyEarned = await hasEarnedPoints(userId, ActivityType.COMPLETE_PROFILE);
+      if (!alreadyEarned) {
+        await awardPoints(userId, ActivityType.COMPLETE_PROFILE);
+      }
     }
 
     return { success: true };

@@ -98,6 +98,34 @@ export const getUserPointsHistory = async (userId: string) => {
 };
 
 /**
+ * Check if user has already earned points for a specific activity (ever)
+ * (useful for one-time awards like profile completion)
+ */
+export const hasEarnedPoints = async (
+  userId: string,
+  activityType: ActivityType
+): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('points_log')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('activity_type', activityType)
+      .limit(1);
+
+    if (error) {
+      console.error('Error checking points history:', error);
+      return false;
+    }
+
+    return (data?.length || 0) > 0;
+  } catch (error) {
+    console.error('Error checking points history:', error);
+    return false;
+  }
+};
+
+/**
  * Check if user has already earned points for a specific activity today
  * (useful for limiting daily login points)
  */
