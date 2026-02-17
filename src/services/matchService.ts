@@ -1,5 +1,6 @@
 import { Alert } from 'react-native';
 import { supabase } from '../supabase';
+import { awardPoints, ActivityType } from './pointsService';
 
 export const logSwipe = async (userId: string | null, dealId: string, direction: 'left' | 'right') => {
   if (!userId) {
@@ -93,6 +94,10 @@ export const checkForMatch = async (userId: string | null, dealId: string) => {
           if (matchError) {
             console.error('Error creating match:', matchError);
           } else {
+            // Award points to both users for matching
+            await awardPoints(userId, ActivityType.MATCH);
+            await awardPoints(matchedUserId, ActivityType.MATCH);
+
             // Notify the current user
             Alert.alert(
               '🎉 It\'s a Match!',

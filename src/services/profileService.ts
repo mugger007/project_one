@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import * as Location from 'expo-location';
+import { awardPoints, ActivityType } from './pointsService';
 
 export interface UserProfile {
   name: string;
@@ -94,6 +95,17 @@ export const saveUserProfile = async (userId: string, profile: UserProfile): Pro
 
     if (error) {
       return { success: false, error: error.message };
+    }
+
+    // Award points for completing profile (if all key fields are filled)
+    const isProfileComplete = 
+      profile.name.trim() !== '' &&
+      profile.dob !== '' &&
+      profile.gender !== '' &&
+      profile.location.trim() !== '';
+
+    if (isProfileComplete) {
+      await awardPoints(userId, ActivityType.COMPLETE_PROFILE);
     }
 
     return { success: true };

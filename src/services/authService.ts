@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { awardPoints, ActivityType, hasEarnedPointsToday } from './pointsService';
 
 export interface AuthResult {
   userId?: string;
@@ -38,6 +39,14 @@ export const signIn = async (email: string, password: string): Promise<AuthResul
 
     if (error) {
       return { error: error.message };
+    }
+
+    // Award login points (once per day)
+    if (data.user?.id) {
+      const alreadyEarned = await hasEarnedPointsToday(data.user.id, ActivityType.LOGIN);
+      if (!alreadyEarned) {
+        await awardPoints(data.user.id, ActivityType.LOGIN);
+      }
     }
 
     return { userId: data.user?.id };
