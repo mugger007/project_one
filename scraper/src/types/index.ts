@@ -1,23 +1,19 @@
 export interface Deal {
-    title: string;
-    dealType: string; // e.g., "1-for-1", "1-for-2", "buy-1-get-1"
-    originalPrice?: number;
-    discountedPrice?: number;
+    merchant_name: string;
+    time_period_start: string | null;
+    time_period_end: string | null;
+    deal_nature: string; // e.g., "1-for-1", "1-for-2", "buy-1-get-1"
+    location: string | null;
+    terms_conditions: string;
     url: string;
-    sourceSite: string;
-    description?: string;
-    scrapedAt: string;
+    description: string;
+    source_url: string;
 }
 
-export interface ScraperOptions {
-    searchTerm: string;
-    maxResults?: number;
-    maxSitesToScrape?: number;
-    timeout?: number;
-}
 
-export interface SearchResult {
+
+export interface DealSite {
+    name: string;
     url: string;
-    title: string;
-    snippet: string;
+    category: string; // e.g., 'food', 'general', 'travel'
 }

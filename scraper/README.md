@@ -1,127 +1,126 @@
 # Generic Deal Scraper
 
-A TypeScript-based web scraper that searches Google for one-for-x deals (e.g., 1-for-1, buy-1-get-1) and scrapes deal information from multiple websites.
+A TypeScript-based web scraper that finds one-for-x deals (e.g., 1-for-1, buy-1-get-1) from web pages using pattern matching.
+
+## ⚠️ Important Notes
+
+This scraper works best with **direct deal pages** that have full deal text in their HTML. It **does not** work well with:
+
+- Category/listing pages (deals shown as links only)
+- JavaScript-heavy sites (where content loads after page render)
+- Sites requiring authentication
+
+### Finding the Right URLs
+
+- ❌ Listing pages (e.g. `/promotions/`) usually contain only links; they tend to return zero matches.
+- ❌ Some known dead URLs: Chope promotions, Burpple `/deals`.
+- ✅ Good targets are individual deal or blog post pages that literally include strings like "1-for-1" or "buy 1 get 1" in the HTML.
+
+You can verify a page by viewing source (Ctrl+U) and searching for patterns.
+
+### Detected Patterns
+
+The parser searches for:
+
+- `1 for 1`
+- `1-for-1`
+- `buy 1 get 1`
+- `1+1`
+- `BOGO` (buy one get one)
+
+Adjust `src/parsers/dealParser.ts` if you need additional patterns.
 
 ## Features
 
-- 🔍 **Google Search Integration**: Automatically searches Google for deal-related queries
-- 🌐 **Generic Scraping**: Works across multiple websites without site-specific configuration
-- ✅ **Deal Validation**: Uses regex patterns to identify and validate deals
-- 📊 **Structured Output**: Saves deals as JSON with title, price, URL, and source
-- 🎯 **Pattern Matching**: Recognizes various deal formats ("1-for-1", "buy 1 get 1", "1+1", etc.)
+- 🎯 **Pattern Matching**: Detects "1-for-1", "buy 1 get 1", "BOGO", "1+1", etc.
+- 🌐 **Generic Parsing**: Works across any website with HTML content
+- ✅ **Deal Validation**: Filters and validates matching patterns
+- 📊 **Structured Output**: JSON output with deal details
+- 🐛 **Debug Logging**: Comprehensive logging for troubleshooting
+- 🔧 **Customizable**: Easy to add your own sites and patterns
 
-## Setup
+## Quick Start
 
-1. Install dependencies:
 ```bash
 cd scraper
 npm install
-```
-
-2. Build the project:
-```bash
 npm run build
-```
-
-3. Run the scraper:
-```bash
 npm start
 ```
 
-## Usage
+## Usage Examples
 
-Edit [src/index.ts](src/index.ts) to customize search queries:
+### Configure Sites to Scrape
+
+Edit [src/index.ts](src/index.ts) and add your sites:
 
 ```typescript
-const queries: ScraperOptions[] = [
-    {
-        searchTerm: '1 for 1 restaurant deals Singapore 2026',
-        maxSitesToScrape: 5,
-    },
+const sitesToScrape: DealSite[] = [
+    { name: 'MySite', url: 'https://mysite.com/deals-page', category: 'food' },
+    { name: 'AnotherSite', url: 'https://another.com/promotions', category: 'general' },
 ];
+
+const scraper = new GenericScraper(sitesToScrape);
+const deals = await scraper.scrape();
+```
+
+### Scrape by Category
+
+```typescript
+const scraper = new GenericScraper(sitesToScrape);
+
+// Only scrape food-related sites
+const foodDeals = await scraper.scrape('food');
+```
+
+### Add Sites Dynamically
+
+```typescript
+const scraper = new GenericScraper();
+
+// Add sites one by one
+scraper.addSite({ 
+    name: 'NewSite', 
+    url: 'https://newsite.com/deals', 
+    category: 'food' 
+});
+
+// Or set all at once
+scraper.setSites([
+    { name: 'Site1', url: 'https://site1.com/deals', category: 'food' },
+    { name: 'Site2', url: 'https://site2.com/deals', category: 'general' },
+]);
+
+const deals = await scraper.scrape();
+```
+
+### Test Pattern Matching
+
+Create a test file to verify patterns work:
+
+```html
+<!-- test-deals.html -->
+<html><body>
+    <div>
+        <h2>Amazing 1-for-1 Pizza Deal!</h2>
+        <p>Original price: $25.90</p>
+    </div>
+    <div>
+        <h2>Buy 1 Get 1 Free Burgers</h2>
+        <p>$15.00 for both</p>
+    </div>
+</body></html>
+```
+
+Then scrape it:
+```typescript
+const scraper = new GenericScraper([
+    { name: 'Test', url: 'file://path/to/test-deals.html', category: 'test' }
+]);
+const deals = await scraper.scrape();
 ```
 
 ## Output
-
-Results are saved in the `output/` folder as JSON files:
-
-```json
-[
-  {
-    "title": "1-for-1 Pizza Deal at Restaurant ABC",
-    "dealType": "1-for-1",
-    "originalPrice": 25.90,
-    "url": "https://example.com/deals",
-    "sourceSite": "example.com",
-    "scrapedAt": "2026-02-19T10:30:00.000Z"
-  }
-]
-```
-
-## How It Works
-
-1. **Search**: Queries Google with your search term
-2. **Extract URLs**: Parses search results to get top website URLs
-3. **Scrape**: Visits each URL and extracts HTML content
-4. **Parse**: Identifies deal patterns using regex
-5. **Validate**: Filters and validates deals
-6. **Save**: Outputs structured JSON files
-
-## Project Structure
-
-```
-scraper/
-├── src/
-│   ├── index.ts              # Main entry point
-│   ├── types/
-│   │   └── index.ts          # TypeScript interfaces
-│   ├── scrapers/
-│   │   └── genericScraper.ts # Google search & scraping logic
-│   ├── parsers/
-│   │   └── dealParser.ts     # Deal pattern matching & validation
-│   └── utils/
-│       └── httpClient.ts     # HTTP request utility
-├── output/                   # Generated JSON files
-├── package.json
-└── tsconfig.json
-```
-
-## Customization
-
-### Add Deal Patterns
-
-Edit [src/parsers/dealParser.ts](src/parsers/dealParser.ts):
-
-```typescript
-private dealPatterns = [
-    /\b2\s*for\s*\d+\b/i,  // Add "2-for-x" pattern
-    // ... existing patterns
-];
-```
-
-### Adjust Scraping Behavior
-
-Modify [src/scrapers/genericScraper.ts](src/scrapers/genericScraper.ts) to change:
-- Request delays (default: 2 seconds)
-- User agent headers
-- Maximum results per search
-
-## Development
-
-```bash
-# Build and run in one command
-npm run dev
-
-# Clean output files
-npm run clean
-```
-
-## Notes
-
-- Be respectful of websites' terms of service and robots.txt
-- The scraper includes delays between requests to avoid overwhelming servers
-- Results may vary depending on Google's search results and website structures
-- Some websites may block automated scraping Project
 
 This project is a web scraping application designed to fetch and parse data from various websites based on generic search criteria. It is structured to facilitate easy extension and maintenance.
 

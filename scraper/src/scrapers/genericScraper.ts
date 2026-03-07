@@ -1,52 +1,71 @@
 import { HttpClient } from '../utils/httpClient';
 import { DealParser } from '../parsers/dealParser';
-import { Deal, SearchResult, ScraperOptions } from '../types';
-import * as cheerio from 'cheerio';
+import { Deal, DealSite } from '../types';
 
 export class GenericScraper {
     private httpClient: HttpClient;
     private dealParser: DealParser;
+    private sitesToScrape: DealSite[];
 
-    constructor() {
+    constructor(sites: DealSite[] = []) {
         this.httpClient = new HttpClient();
         this.dealParser = new DealParser();
+        this.sitesToScrape = sites;
     }
 
     /**
-     * Search Google for deal-related queries and return URLs
+     * Get all sites to scrape
      */
-    async searchGoogle(query: string, maxResults: number = 10): Promise<SearchResult[]> {
-        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=${maxResults}`;
-        const results: SearchResult[] = [];
+    getSites(): DealSite[] {
+        return this.sitesToScrape;
+    }
 
-        try {
-            const html = await this.httpClient.getText(searchUrl);
-            const $ = cheerio.load(html);
+    /**
+     * Set the sites to scrape
+     */
+    setSites(sites: DealSite[]): void {
+        this.sitesToScrape = sites;
+    }
 
-            // Extract search result links
-            // Google's structure: look for main result divs
-            $('div.g, div[data-sokoban-container]').each((_: number, elem: cheerio.Element) => {
-                const $elem = $(elem);
-                const $link = $elem.find('a[href]').first();
-                const href = $link.attr('href');
-                
-                if (href && href.startsWith('http') && !href.includes('google.com')) {
-                    const title = $link.text().trim() || $elem.find('h3').first().text().trim();
-                    const snippet = $elem.find('.VwiC3b, .yXK7lf').first().text().trim();
+    /**
+     * Add a site to scrape
+     */
+    addSite(site: DealSite): void {
+        this.sitesToScrape.push(site);
+    }
 
-                    results.push({
-                        url: href,
-                        title,
-                        snippet,
-                    });
-                }
-            });
+    /**
+     * Scrape sites, optionally filtered by category
+     */
+    async scrapeByCategory(category?: string): Promise<Deal[]> {
+        const sites = category 
+            ? this.sitesToScrape.filter(s => s.category === category)
+            : this.sitesToScrape;
 
-            return results.slice(0, maxResults);
-        } catch (error) {
-            console.error(`Error searching Google: ${error}`);
+        if (sites.length === 0) {
+            console.log('[WARN] No sites configured to scrape. Add sites using setSites() or addSite()');
             return [];
         }
+
+        console.log(`\n[INFO] Scraping ${sites.length} site(s)${category ? ` (category: ${category})` : ''}`);
+        
+        const allDeals: Deal[] = [];
+
+        for (let i = 0; i < sites.length; i++) {
+            const site = sites[i];
+            console.log(`\n[${i + 1}/${sites.length}] ${site.name} (${site.url})`);
+            
+            const deals = await this.scrapePage(site.url);
+            allDeals.push(...deals);
+
+            // Be polite - wait between requests
+            if (i < sites.length - 1) {
+                await this.sleep(3000);
+            }
+        }
+
+        console.log(`\n[INFO] Total deals found: ${allDeals.length}`);
+        return allDeals;
     }
 
     /**
@@ -54,44 +73,29 @@ export class GenericScraper {
      */
     async scrapePage(url: string): Promise<Deal[]> {
         try {
-            console.log(`Scraping: ${url}`);
+            console.log(`[DEBUG] Scraping: ${url}`);
             const html = await this.httpClient.getText(url);
+            console.log(`[DEBUG] Received HTML (length: ${html.length} chars)`);
             const deals = this.dealParser.parseDealsFromHtml(html, url);
-            console.log(`  Found ${deals.length} deals`);
+            console.log(`[DEBUG] Found ${deals.length} deals`);
+            if (deals.length > 0) {
+                console.log(`[DEBUG] Sample deal: ${deals[0].description.substring(0, 50)}...`);
+            }
             return deals;
         } catch (error) {
-            console.error(`Error scraping ${url}: ${error}`);
+            console.error(`[ERROR] Error scraping ${url}: ${error}`);
+            if (error instanceof Error) {
+                console.error(`[ERROR] Stack: ${error.stack}`);
+            }
             return [];
         }
     }
 
     /**
-     * Main method: Search Google and scrape results for deals
+     * Main method: Scrape all configured sites
      */
-    async searchAndScrape(options: ScraperOptions): Promise<Deal[]> {
-        const { searchTerm, maxSitesToScrape = 5 } = options;
-        
-        console.log(`Searching Google for: "${searchTerm}"`);
-        const searchResults = await this.searchGoogle(searchTerm, maxSitesToScrape);
-        console.log(`Found ${searchResults.length} URLs to scrape\n`);
-
-        const allDeals: Deal[] = [];
-
-        for (let i = 0; i < searchResults.length; i++) {
-            const result = searchResults[i];
-            console.log(`[${i + 1}/${searchResults.length}] ${result.url}`);
-            
-            const deals = await this.scrapePage(result.url);
-            allDeals.push(...deals);
-
-            // Be polite - wait between requests
-            if (i < searchResults.length - 1) {
-                await this.sleep(2000);
-            }
-        }
-
-        console.log(`\nTotal deals found: ${allDeals.length}`);
-        return allDeals;
+    async scrape(category?: string): Promise<Deal[]> {
+        return await this.scrapeByCategory(category);
     }
 
     /**
