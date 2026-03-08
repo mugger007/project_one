@@ -50,30 +50,32 @@ export class DealParser {
     extractValidityDates(text: string): { start: string | null, end: string | null } {
         const result = { start: null as string | null, end: null as string | null };
         
-        // Look for various date patterns
-        const datePatterns = [
-            // "valid from X to Y", "valid till X", "valid until X"
-            /(?:valid\s+from|from)\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/gi,
-            /(?:valid\s+(?:till|until)|until)\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/gi,
-            /(?:valid\s+from|from)\s+([\d]{1,2}[-/][\d]{1,2}[-/][\d]{4})/gi,
-            /(?:valid\s+(?:till|until)|until)\s+([\d]{1,2}[-/][\d]{1,2}[-/][\d]{4})/gi,
-            // Direct date mentions
-            /([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/gi,
-            /([\d]{1,2}[-/][\d]{1,2}[-/][\d]{4})/gi
-        ];
+        // Pattern 1: "valid from X to Y" or "from X to Y"
+        const fromToPattern = /(?:valid\s+)?from\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})\s+(?:to|till|until)\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/gi;
+        const fromToMatches = text.match(fromToPattern);
+        if (fromToMatches && fromToMatches.length > 0) {
+            const match = fromToMatches[0];
+            const fromMatch = match.match(/from\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/i);
+            const toMatch = match.match(/(?:to|till|until)\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/i);
+            if (fromMatch) result.start = fromMatch[1];
+            if (toMatch) result.end = toMatch[1];
+            return result;
+        }
 
-        for (const pattern of datePatterns) {
-            const matches = text.match(pattern);
-            if (matches) {
-                for (const match of matches) {
-                    const cleanDate = match.replace(/^(?:valid\s+(?:from|till|until)|from|until)\s+/i, '');
-                    if (!result.start) {
-                        result.start = cleanDate;
-                    } else if (!result.end) {
-                        result.end = cleanDate;
-                    }
-                }
-            }
+        // Pattern 2: "valid from X" (start date only)
+        const validFromPattern = /(?:valid\s+)?from\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/gi;
+        const validFromMatches = text.match(validFromPattern);
+        if (validFromMatches && validFromMatches.length > 0) {
+            const cleanDate = validFromMatches[0].replace(/^(?:valid\s+)?from\s+/i, '');
+            result.start = cleanDate;
+        }
+
+        // Pattern 3: "valid till/until X" or "till/until X" (end date only)
+        const validTillPattern = /(?:valid\s+)?(?:till|until)\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/gi;
+        const validTillMatches = text.match(validTillPattern);
+        if (validTillMatches && validTillMatches.length > 0) {
+            const cleanDate = validTillMatches[0].replace(/^(?:valid\s+)?(?:till|until)\s+/i, '');
+            result.end = cleanDate;
         }
 
         return result;
@@ -154,7 +156,7 @@ export class DealParser {
     }
 
     /**
-     * Parse deals from HTML content
+     * Parse deals from HTML content using deal boundaries (h3 to hr)
      */
     parseDealsFromHtml(html: string, sourceUrl: string): Deal[] {
         console.log(`[DEBUG] Parsing HTML from ${sourceUrl}`);
@@ -162,58 +164,80 @@ export class DealParser {
         const deals: Deal[] = [];
         const domain = new URL(sourceUrl).hostname;
 
-        // Search for deal patterns in various elements
-        const elements = $('div, article, section, li, p, span, h1, h2, h3, h4');
-        console.log(`[DEBUG] Found ${elements.length} HTML elements to check`);
+        // Strategy: Find all h3 tags that contain deal patterns, then collect content until the next hr tag
+        const h3Elements = $('h3');
+        console.log(`[DEBUG] Found ${h3Elements.length} h3 elements to check`);
 
-        let elementsChecked = 0;
-        let minLengthElements = 0;
-        let matchedPatterns = 0;
+        let dealCount = 0;
+        const processedHeadings = new Set<string>();
 
-        elements.each((_: number, elem: cheerio.Element) => {
-            const $elem = $(elem);
-            const text = $elem.text().trim();
-            elementsChecked++;
+        h3Elements.each((_: number, h3Elem: cheerio.Element) => {
+            const $h3 = $(h3Elem);
+            const h3Text = $h3.text().trim();
+            
+            // Skip if this heading has already been processed (dedup)
+            if (processedHeadings.has(h3Text)) {
+                console.log(`[DEBUG] Skipping duplicate heading: ${h3Text.substring(0, 50)}`);
+                return;
+            }
 
-            // Skip very short text
-            if (text.length < 10) return;
-            minLengthElements++;
-
-            if (this.validateDeal(text)) {
-                matchedPatterns++;
+            if (this.validateDeal(h3Text)) {
+                console.log(`[DEBUG] Found h3 heading with deal: "${h3Text.substring(0, 80)}..."`);
+                dealCount++;
+                processedHeadings.add(h3Text);
                 
-                // Extract just the sentence with the deal
-                const dealSentence = this.extractDealSentence(text);
-                console.log(`[DEBUG] Match #${matchedPatterns}: "${dealSentence.substring(0, 100)}..."`);
-                
-                const dealType = this.extractDealType(dealSentence);
+                // Collect all content from this h3 until the next hr tag
+                let $current = $h3.next();
+                let sectionText = h3Text; // Start with the heading
+                const sectionLinks: string[] = [];
+
+                while ($current.length > 0 && $current.prop('tagName')?.toLowerCase() !== 'hr') {
+                    const currentText = $current.text().trim();
+                    if (currentText.length > 0) {
+                        sectionText += '\n' + currentText;
+                    }
+
+                    // Collect links from this section
+                    $current.find('a').each((i: number, link: cheerio.Element) => {
+                        const href = $(link).attr('href');
+                        if (href) {
+                            sectionLinks.push(href);
+                        }
+                    });
+
+                    $current = $current.next();
+                }
+
+                // Extract deal information from the entire section
+                const dealType = this.extractDealType(h3Text);
                 if (!dealType) {
-                    console.log('[DEBUG] Could not extract deal type');
+                    console.log('[DEBUG] Could not extract deal type from h3');
                     return;
                 }
 
-                const prices = this.extractPrices(dealSentence);
+                const prices = this.extractPrices(sectionText);
                 console.log(`[DEBUG] Extracted ${prices.length} prices: ${prices.join(', ')}`);
                 
-                const validityDates = this.extractValidityDates(text);
+                // Extract validity dates from the entire section
+                const validityDates = this.extractValidityDates(sectionText);
                 console.log(`[DEBUG] Extracted dates - Start: ${validityDates.start}, End: ${validityDates.end}`);
                 
-                const merchantName = this.extractMerchantName(dealSentence) || domain;
-                console.log(`[DEBUG] Extracted merchant: ${merchantName}`);
+                // Extract merchant name primarily from h3 heading
+                const merchantName = this.extractMerchantName(h3Text) || domain;
+                console.log(`[DEBUG] Extracted merchant from h3: ${merchantName}`);
                 
-                const link = $elem.find('a').first().attr('href') || 
-                            $elem.closest('a').attr('href');
-                
+                // Find the best URL from the section's links
                 let dealUrl = sourceUrl;
-                if (link) {
+                for (const link of sectionLinks) {
                     const fullUrl = link.startsWith('http') 
                         ? link 
                         : new URL(link, sourceUrl).href;
                     
-                    // Prefer external URLs for deals, fallback to internal
+                    // Prefer external URLs for deals
                     if (this.isExternalUrl(fullUrl, domain)) {
                         dealUrl = fullUrl;
-                    } else if (!dealUrl || dealUrl === sourceUrl) {
+                        break;
+                    } else if (dealUrl === sourceUrl) {
                         dealUrl = fullUrl;
                     }
                 }
@@ -224,18 +248,18 @@ export class DealParser {
                     time_period_end: validityDates.end,
                     deal_nature: dealType,
                     location: null,
-                    terms_conditions: text.substring(0, 400),
+                    terms_conditions: sectionText.substring(0, 400),
                     url: dealUrl,
-                    description: dealSentence.substring(0, 250),
+                    description: h3Text.substring(0, 250),
                     source_url: domain,
                 });
             }
         });
 
-        console.log(`[DEBUG] Elements checked: ${elementsChecked}, Min length passed: ${minLengthElements}, Pattern matches: ${matchedPatterns}`);
+        console.log(`[DEBUG] H3 headings checked: ${h3Elements.length}, Deals found: ${dealCount}`);
         console.log(`[DEBUG] Raw deals found: ${deals.length}`);
 
-        // Remove duplicates based on title and URL
+        // Remove duplicates based on description and URL
         const dedupedDeals = this.deduplicateDeals(deals);
         console.log(`[DEBUG] After deduplication: ${dedupedDeals.length} deals`);
         
