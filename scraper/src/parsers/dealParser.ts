@@ -32,19 +32,6 @@ export class DealParser {
     }
 
     /**
-     * Extract price information from text
-     */
-    extractPrices(text: string): number[] {
-        const pricePattern = /\$?\d+\.?\d*/g;
-        const matches = text.match(pricePattern);
-        if (!matches) return [];
-        
-        return matches
-            .map(p => parseFloat(p.replace('$', '')))
-            .filter(p => !isNaN(p) && p > 0);
-    }
-
-    /**
      * Extract dates from text looking for validity periods
      */
     extractValidityDates(text: string): { start: string | null, end: string | null } {
@@ -98,22 +85,7 @@ export class DealParser {
             }
         }
         
-        // Pattern 2: Known merchant patterns with specific keywords
-        const knownPatterns = [
-            // Restaurant/hotel chains and specific names
-            /(Swensen['']?s|Honbo|Big Fish Small Fish|Goodwood Park Hotel|Atrium Restaurant|Coffee Lounge|PAW Patrol Live|Auntie Anne['']?s|Beauty in The Pot|Permata Singapore|Carnivore Brazilian Churrascaria|Racines|The Blue Tiffin|Opus Bar and Grill|voco Orchard Singapore|Sofitel Singapore City Centre)/i,
-            // Generic patterns for restaurant names
-            /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)(?:\s+(?:restaurant|hotel|cafe|bar|lounge|buffet|bakery|grill|churrascaria))/i
-        ];
-        
-        for (const pattern of knownPatterns) {
-            const match = cleanText.match(pattern);
-            if (match && match[1]) {
-                return match[1].trim();
-            }
-        }
-        
-        // Pattern 3: First sentence subject for "Merchant is offering/having/has" patterns
+        // Pattern 2: First sentence subject for "Merchant is offering/having/has" patterns
         const subjectMatch = cleanText.match(/^([A-Z][^.!?]*?)\s+(?:is\s+(?:offering|running|having|calling)|has|offers?)\s+(?:all|you|an?|the)?\s*(?:1-for-1|buy\s*1\s*get\s*1|bogo|1\+1|deal|promotion|special)/i);
         if (subjectMatch && subjectMatch[1]) {
             const merchant = subjectMatch[1].trim();
@@ -135,24 +107,6 @@ export class DealParser {
         } catch {
             return false;
         }
-    }
-
-    /**
-     * Extract the sentence containing the deal pattern
-     */
-    private extractDealSentence(text: string): string {
-        // Split by periods, question marks, exclamation marks
-        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-        
-        // Find the first sentence containing a deal pattern
-        for (const sentence of sentences) {
-            if (this.validateDeal(sentence)) {
-                return sentence.trim();
-            }
-        }
-        
-        // Fallback: return first 200 chars if no sentence found but pattern exists
-        return text.substring(0, 200);
     }
 
     /**
@@ -214,9 +168,6 @@ export class DealParser {
                     console.log('[DEBUG] Could not extract deal type from h3');
                     return;
                 }
-
-                const prices = this.extractPrices(sectionText);
-                console.log(`[DEBUG] Extracted ${prices.length} prices: ${prices.join(', ')}`);
                 
                 // Extract validity dates from the entire section
                 const validityDates = this.extractValidityDates(sectionText);
