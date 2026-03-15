@@ -3,10 +3,11 @@ import * as cheerio from 'cheerio';
 
 export class DealParser {
     private dealPatterns = [
-        /\b1\s*for\s*\d+\b/i,
-        /\bbuy\s*1\s*get\s*\d+\b/i,
+        /\b1\s*,?\s*for\s*,?\s*\d+\b/i,
+        /\bbuy\s*1\s*,?\s*get\s*,?\s*\d+\b/i,
+        /\bbuy\s*one\s*,?\s*get\s*,?\s*one\b/i,
+        /\bone\s*for\s*one\b/i,
         /\b1-for-\d+\b/i,
-        /\bone\s*for\s*\d+\b/i,
         /\b1\+\d+\b/i,
         /\bbogo\b/i, // buy one get one
     ];
@@ -36,7 +37,22 @@ export class DealParser {
      */
     extractValidityDates(text: string): { start: string | null, end: string | null } {
         const result = { start: null as string | null, end: null as string | null };
-        
+
+        // Pattern 0: "DD MMM - DD MMM" (e.g. "09 Mar - 15 Mar")
+        const monthDayPattern = /(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*-\s*(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:\s+(\d{4}))?/i;
+        const monthDayMatch = text.match(monthDayPattern);
+        if (monthDayMatch) {
+            const startDay = monthDayMatch[1];
+            const startMonth = monthDayMatch[2];
+            const endDay = monthDayMatch[3];
+            const endMonth = monthDayMatch[4];
+            const year = monthDayMatch[5] || `${new Date().getFullYear()}`;
+
+            result.start = `${startDay} ${startMonth} ${year}`;
+            result.end = `${endDay} ${endMonth} ${year}`;
+            return result;
+        }
+
         // Pattern 1: "valid from X to Y" or "from X to Y"
         const fromToPattern = /(?:valid\s+)?from\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})\s+(?:to|till|until)\s+([\d]{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+[\d]{4})/gi;
         const fromToMatches = text.match(fromToPattern);
@@ -98,6 +114,88 @@ export class DealParser {
     }
 
     /**
+     * Extract location from text, focusing on Singapore-specific keywords
+     */
+    extractLocation(text: string): string | null {
+        const lowerText = text.toLowerCase();
+        const singaporeKeywords = [
+            /\bsingapore\b/i,
+            /\bsg\b/i,
+            /\bs'pore\b/i,
+            /\bcentral\s+region\b/i,
+            /\beast\s+region\b/i,
+            /\bnorth\s+region\b/i,
+            /\bsouth\s+region\b/i,
+            /\bwest\s+region\b/i,
+            /\bchangi\b/i,
+            /\bsentosa\b/i,
+            /\bmarina\s+bay\b/i,
+            /\borchard\b/i,
+            /\bbugis\b/i,
+            /\btampines\b/i,
+            /\bjurong\b/i,
+            /\bwoodlands\b/i,
+            /\byishun\b/i,
+            /\btoa\s+payoh\b/i,
+            /\bhougang\b/i,
+            /\bpunggol\b/i,
+            /\bsembawang\b/i,
+        ];
+
+        for (const keyword of singaporeKeywords) {
+            if (keyword.test(lowerText)) {
+                return 'Singapore';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract terms and conditions URL from HTML chunk
+     */
+    extractTermsConditionsUrl(html: string, baseUrl: string): string | null {
+        const $ = cheerio.load(html);
+        let termsUrl: string | null = null;
+
+        $('a').each((_, link) => {
+            const linkText = $(link).text().trim().toLowerCase();
+            const href = $(link).attr('href');
+
+            if (href && (
+                linkText.includes('terms') && linkText.includes('conditions') ||
+                linkText.includes('terms & conditions') ||
+                linkText.includes('t&c') ||
+                linkText.includes('terms and conditions') ||
+                linkText.includes('terms of use') ||
+                linkText.includes('conditions of use') ||
+                /^terms$/i.test(linkText) ||
+                /^conditions$/i.test(linkText)
+            )) {
+                termsUrl = href.startsWith('http') ? href : new URL(href, baseUrl).href;
+                return false; // break out of each
+            }
+        });
+
+        return termsUrl;
+    }
+
+    /**
+     * Extract deal image URL from HTML chunk
+     */
+    extractDealImageUrl(html: string, baseUrl: string): string | null {
+        const $ = cheerio.load(html);
+        const img = $('img').first();
+        if (img.length > 0) {
+            const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy-src');
+            if (src) {
+                return src.startsWith('http') ? src : new URL(src, baseUrl).href;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Check if URL is external (not from the same domain)
      */
     isExternalUrl(url: string, domain: string): boolean {
@@ -109,124 +207,4 @@ export class DealParser {
         }
     }
 
-    /**
-     * Parse deals from HTML content using deal boundaries (h3 to hr)
-     */
-    parseDealsFromHtml(html: string, sourceUrl: string): Deal[] {
-        console.log(`[DEBUG] Parsing HTML from ${sourceUrl}`);
-        const $ = cheerio.load(html);
-        const deals: Deal[] = [];
-        const domain = new URL(sourceUrl).hostname;
-
-        // Strategy: Find all h3 tags that contain deal patterns, then collect content until the next hr tag
-        const h3Elements = $('h3');
-        console.log(`[DEBUG] Found ${h3Elements.length} h3 elements to check`);
-
-        let dealCount = 0;
-        const processedHeadings = new Set<string>();
-
-        h3Elements.each((_: number, h3Elem: cheerio.Element) => {
-            const $h3 = $(h3Elem);
-            const h3Text = $h3.text().trim();
-            
-            // Skip if this heading has already been processed (dedup)
-            if (processedHeadings.has(h3Text)) {
-                console.log(`[DEBUG] Skipping duplicate heading: ${h3Text.substring(0, 50)}`);
-                return;
-            }
-
-            if (this.validateDeal(h3Text)) {
-                console.log(`[DEBUG] Found h3 heading with deal: "${h3Text.substring(0, 80)}..."`);
-                dealCount++;
-                processedHeadings.add(h3Text);
-                
-                // Collect all content from this h3 until the next hr tag
-                let $current = $h3.next();
-                let sectionText = h3Text; // Start with the heading
-                const sectionLinks: string[] = [];
-
-                while ($current.length > 0 && $current.prop('tagName')?.toLowerCase() !== 'hr') {
-                    const currentText = $current.text().trim();
-                    if (currentText.length > 0) {
-                        sectionText += '\n' + currentText;
-                    }
-
-                    // Collect links from this section
-                    $current.find('a').each((i: number, link: cheerio.Element) => {
-                        const href = $(link).attr('href');
-                        if (href) {
-                            sectionLinks.push(href);
-                        }
-                    });
-
-                    $current = $current.next();
-                }
-
-                // Extract deal information from the entire section
-                const dealType = this.extractDealType(h3Text);
-                if (!dealType) {
-                    console.log('[DEBUG] Could not extract deal type from h3');
-                    return;
-                }
-                
-                // Extract validity dates from the entire section
-                const validityDates = this.extractValidityDates(sectionText);
-                console.log(`[DEBUG] Extracted dates - Start: ${validityDates.start}, End: ${validityDates.end}`);
-                
-                // Extract merchant name primarily from h3 heading
-                const merchantName = this.extractMerchantName(h3Text) || domain;
-                console.log(`[DEBUG] Extracted merchant from h3: ${merchantName}`);
-                
-                // Find the best URL from the section's links
-                let dealUrl = sourceUrl;
-                for (const link of sectionLinks) {
-                    const fullUrl = link.startsWith('http') 
-                        ? link 
-                        : new URL(link, sourceUrl).href;
-                    
-                    // Prefer external URLs for deals
-                    if (this.isExternalUrl(fullUrl, domain)) {
-                        dealUrl = fullUrl;
-                        break;
-                    } else if (dealUrl === sourceUrl) {
-                        dealUrl = fullUrl;
-                    }
-                }
-
-                deals.push({
-                    merchant_name: merchantName,
-                    time_period_start: validityDates.start,
-                    time_period_end: validityDates.end,
-                    deal_nature: dealType,
-                    location: null,
-                    terms_conditions: sectionText.substring(0, 400),
-                    url: dealUrl,
-                    description: h3Text.substring(0, 250),
-                    source_url: domain,
-                });
-            }
-        });
-
-        console.log(`[DEBUG] H3 headings checked: ${h3Elements.length}, Deals found: ${dealCount}`);
-        console.log(`[DEBUG] Raw deals found: ${deals.length}`);
-
-        // Remove duplicates based on description and URL
-        const dedupedDeals = this.deduplicateDeals(deals);
-        console.log(`[DEBUG] After deduplication: ${dedupedDeals.length} deals`);
-        
-        return dedupedDeals;
-    }
-
-    /**
-     * Remove duplicate deals
-     */
-    private deduplicateDeals(deals: Deal[]): Deal[] {
-        const seen = new Set<string>();
-        return deals.filter(deal => {
-            const key = `${deal.description}-${deal.url}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-    }
 }

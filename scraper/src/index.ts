@@ -12,9 +12,49 @@ const main = async () => {
         // Add your deal pages here. Use full pages containing the deal text,
         // not just listing/category pages.
         // { name: 'Site Name', url: 'https://example.com/deals-page', category: 'food' },
-        
-        // Active deal sites:
-        { name: 'SassyMama SG', url: 'https://www.sassymamasg.com/play-deals-promo-codes-discounts-attractions-dining/', category: 'general' },
+
+        // Aggregator sites (custom parsing + pagination support)
+        {
+            name: 'MyFave',
+            url: 'https://myfave.com/sg',
+            category: 'general',
+        },
+        {
+            name: 'SassyMama SG',
+            url: 'https://www.sassymamasg.com/play-deals-promo-codes-discounts-attractions-dining/',
+            category: 'general',
+        },
+        {
+            name: 'CapitaLand Deals',
+            url: 'https://www.capitaland.com/sg/en/shop/malls/deals.html',
+            category: 'general',
+            useJsScraping: true,
+            loadMoreSelector: '.cmp-cta__text',
+            loadMoreText: 'Load More',
+            containerSelector: 'body',
+            maxLoadMoreClicks: 20,
+            loadMoreWaitForSelector: '.cmp-listing-card--deal',
+        },
+        {
+            name: 'AllSGPromo',
+            url: 'https://www.allsgpromo.com/1-for-1-promotion-deals/',
+            category: 'general',
+        },
+        {
+            name: 'DiveDeals',
+            url: 'https://divedeals.sg/',
+            category: 'general',
+        },
+        {
+            name: 'SingPromos',
+            url: 'https://singpromos.com/bydate/ontoday/',
+            category: 'general',
+        },
+        {
+            name: 'GreatDeals SG',
+            url: 'https://www.greatdeals.com.sg/',
+            category: 'general',
+        },
     ];
 
     // ============================================================
