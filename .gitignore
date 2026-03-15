@@ -43,3 +43,6 @@ yarn-error.*
 
 # database documentation
 database/README.md
+
+# scraper output
+scraper/output/
