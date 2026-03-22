@@ -1,0 +1,55 @@
+name: README Guard
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  readme-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce README update for core changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            echo "No valid base SHA available (likely first push). Skipping README guard."
+            exit 0
+          fi
+
+          echo "Comparing changes: $BASE_SHA...$HEAD_SHA"
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Core app areas that should require README updates when changed.
+          CORE_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^(App\.tsx|app\.json|package\.json|src/|database/)' || true)
+          README_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^README\.md$' || true)
+
+          if [[ -n "$CORE_CHANGED" && -z "$README_CHANGED" ]]; then
+            echo "::error::Core app files changed but README.md was not updated."
+            echo "Core changed files:"
+            echo "$CORE_CHANGED"
+            echo "Please update README.md (or adjust this workflow if this rule is too strict)."
+            exit 1
+          fi
+
+          echo "README guard passed."
