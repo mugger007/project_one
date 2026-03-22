@@ -5,20 +5,23 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { useUserStore } from './src/stores/userStore';
 import { supabase } from './src/supabase';
 import Onboarding from './src/screens/Onboarding';
 import DealFeed from './src/screens/DealFeed';
+import Explore from './src/screens/Explore';
 import Matches from './src/screens/Matches';
 import Chat from './src/screens/Chat';
-import Settings from './src/screens/Settings';
 import Profile from './src/screens/Profile';
+import Settings from './src/screens/Settings';
+import { OnesieColors, OnesieTypography } from './src/theme/tokens';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 const MatchesStack = createStackNavigator();
+const ProfileStack = createStackNavigator();
 
 function MatchesNavigator() {
   return (
@@ -29,36 +32,62 @@ function MatchesNavigator() {
   );
 }
 
+function ProfileNavigator() {
+  return (
+    <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
+      <ProfileStack.Screen name="ProfileMain" component={Profile} />
+      <ProfileStack.Screen name="Settings" component={Settings} />
+    </ProfileStack.Navigator>
+  );
+}
+
 function TabNavigator() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: OnesieTypography.caption,
+          fontWeight: '600',
+          marginBottom: 2,
+        },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
           if (route.name === 'DealFeed') {
-            iconName = 'list-outline';
+            iconName = focused ? 'swap-horizontal' : 'swap-horizontal-outline';
+          } else if (route.name === 'Explore') {
+            iconName = focused ? 'compass' : 'compass-outline';
           } else if (route.name === 'Matches') {
-            iconName = 'heart-outline';
-          } else if (route.name === 'Settings') {
-            iconName = 'settings-outline';
+            iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Profile') {
-            iconName = 'person-outline';
+            iconName = focused ? 'person' : 'person-outline';
           } else {
             iconName = 'home-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: 'tomato',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: OnesieColors.coral,
+        tabBarInactiveTintColor: OnesieColors.navy,
+        tabBarStyle: {
+          backgroundColor: OnesieColors.white,
+          borderTopColor: 'rgba(31, 42, 68, 0.10)',
+          borderTopWidth: 1,
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 8),
+          height: 58 + Math.max(insets.bottom, 8),
+        },
       })}
     >
-      <Tab.Screen name="DealFeed" component={DealFeed} />
+      {/* Updated to match new Figma design v2 - Home/Explore/Matches/Profile tab structure. */}
+      <Tab.Screen name="DealFeed" component={DealFeed} options={{ title: 'Home' }} />
+      <Tab.Screen name="Explore" component={Explore} />
       <Tab.Screen name="Matches" component={MatchesNavigator} />
-      <Tab.Screen name="Settings" component={Settings} />
-      <Tab.Screen name="Profile" component={Profile} />
+      <Tab.Screen name="Profile" component={ProfileNavigator} />
     </Tab.Navigator>
   );
 }
@@ -94,6 +123,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="dark" />
       <SafeAreaProvider>
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>

@@ -9,7 +9,7 @@ import puppeteer, { Page } from 'puppeteer';
  * Simple deal parsing for sites without custom scrapers.
  * Looks for deal patterns in HTML content.
  */
-export function parseDealsFromHtml($: cheerio.Root, sourceUrl: string, dealParser: DealParser): Deal[] {
+export function parseDealsFromHtml($: cheerio.CheerioAPI, sourceUrl: string, dealParser: DealParser): Deal[] {
     const deals: Deal[] = [];
     const domain = new URL(sourceUrl).hostname;
     const bodyText = $('body').text();

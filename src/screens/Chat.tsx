@@ -111,7 +111,6 @@ export default function Chat({ route, navigation }: any) {
         user={{
           _id: userId || '1',
         }}
-        showUserAvatar={false}
         renderDay={() => null}
       />
     </View>
