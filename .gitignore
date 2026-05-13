@@ -44,8 +44,24 @@ yarn-error.*
 # database documentation
 database/README.md
 
-# scraper output
+# scraper output and build
 scraper/output/
+scraper/dist/
 
-# Figma design files 
+# Figma design files
 Figma/*
+
+# IDE and editor config
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Development tools
+.claude/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
