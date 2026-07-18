@@ -176,6 +176,7 @@ scraper
 │       └── index.ts                # TypeScript interfaces: Deal, DealSite
 ├── dist                            # Compiled JavaScript (generated)
 ├── output                          # Generated JSON files (git-ignored)
+├── sources.json                    # Deal source categories and URLs (data file)
 ├── package.json                    # npm configuration & dependencies
 ├── tsconfig.json                   # TypeScript configuration
 └── README.md                       # This file
@@ -208,6 +209,57 @@ The scraper is pre-configured with these sites:
 7. **GreatDeals SG** - HTML pagination
 
 Add or modify sites in [src/index.ts](src/index.ts).
+
+## Available Deal Sources
+
+The [sources.json](sources.json) file contains a curated list of deal sources organized by category. These sources can be used to expand the scraper or as reference URLs:
+
+| Category | Description | Count |
+|----------|-------------|-------|
+| **general_deal_aggregators** | General deal aggregation sites | 9 |
+| **attractions_and_activities_specific** | Attractions, activities, and entertainment deals | 4 |
+| **editorial_blogs_and_media** | Editorial blogs and media publications | 8 |
+| **credit_card_and_bank_promo_pages** | Bank and credit card promotion pages | 4 |
+| **social_and_user_generated** | Social media and user-generated content | 5 |
+| **deal_apps_and_voucher_platforms** | Mobile apps and voucher platforms | 2 |
+| **directories_and_listings** | Business directories and listings | 1 |
+| **open_data_and_dev_projects** | Open-source and developer projects | 1 |
+
+### Using Sources for Expansion
+
+To add more sites to the scraper:
+
+1. Review [sources.json](sources.json) for target URLs
+2. Add entries to the `sitesToScrape` array in [src/index.ts](src/index.ts)
+3. If a site has a unique layout, create a custom scraper in [src/scrapers/siteScrapers.ts](src/scrapers/siteScrapers.ts)
+4. Register the custom scraper in the `siteScrapers` export
+
+**Example**: To add SingPromos with custom parsing:
+
+```typescript
+// Step 1: Add to sitesToScrape
+{
+    name: 'SingPromos',
+    url: 'https://singpromos.com/tag/1-for-1/',
+    category: 'general',
+    scraperKey: 'singpromos.com',
+}
+
+// Step 2: Create custom scraper in siteScrapers.ts
+export async function scrapeSingPromos(params: {
+    site: DealSite;
+    httpClient: HttpClient;
+    dealParser: DealParser;
+}): Promise<Deal[]> {
+    // Custom parsing logic here
+}
+
+// Step 3: Register in siteScrapers export
+export const siteScrapers: Record<string, SiteScraper> = {
+    'singpromos.com': scrapeSingPromos,
+    // ... other scrapers
+};
+```
 
 ## Installation
 
