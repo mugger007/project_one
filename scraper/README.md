@@ -4,11 +4,17 @@ A TypeScript-based web scraper that finds one-for-x deals (e.g., 1-for-1, buy-1-
 
 ## ⚠️ Important Notes
 
-This scraper works best with **direct deal pages** that have full deal text in their HTML. It **does not** work well with:
+This scraper works best with **direct deal pages** that have full deal text in their HTML. It **does** support:
 
-- Category/listing pages (deals shown as links only)
-- JavaScript-heavy sites (where content loads after page render)
-- Sites requiring authentication
+- ✅ **Static HTML pages** with full deal text
+- ✅ **Multi-page sites** with pagination links
+- ✅ **JavaScript-heavy sites** with dynamic content (using Puppeteer)
+- ✅ **Load More buttons** and infinite scroll (with JS rendering)
+
+It **does not** work well with:
+
+- ❌ Category/listing pages (deals shown as links only)
+- ❌ Sites requiring authentication
 
 ### Finding the Right URLs
 
@@ -33,11 +39,15 @@ Adjust `src/parsers/dealParser.ts` if you need additional patterns.
 ## Features
 
 - 🎯 **Pattern Matching**: Detects "1-for-1", "buy 1 get 1", "BOGO", "1+1", etc.
-- 🌐 **Generic Parsing**: Works across any website with HTML content
+- 🌐 **HTML Parsing**: Works across static HTML websites
+- 🤖 **JS Rendering**: Supports JavaScript-heavy sites with Puppeteer
+- 📄 **Pagination**: Follows multi-page pagination links automatically
+- 🔄 **Load More Support**: Handles "Load More" buttons and dynamic content
 - ✅ **Deal Validation**: Filters and validates matching patterns
-- 📊 **Structured Output**: JSON output with deal details
+- 📊 **Structured Output**: JSON output with deal details (merchant, dates, images, location)
 - 🐛 **Debug Logging**: Comprehensive logging for troubleshooting
-- 🔧 **Customizable**: Easy to add your own sites and patterns
+- 🔧 **Custom Scrapers**: Easy to add site-specific parsing logic
+- 🎯 **Categories**: Organize sites by category and scrape selectively
 
 ## Quick Start
 
@@ -72,6 +82,31 @@ const scraper = new GenericScraper(sitesToScrape);
 // Only scrape food-related sites
 const foodDeals = await scraper.scrape('food');
 ```
+
+### Configure JS-Based Scraping (Dynamic Content)
+
+For sites that load content via JavaScript, enable JS rendering:
+
+```typescript
+const sitesToScrape: DealSite[] = [
+    {
+        name: 'CapitaLand Deals',
+        url: 'https://www.capitaland.com/sg/en/shop/malls/deals.html',
+        category: 'general',
+        useJsScraping: true,                          // Enable JS rendering
+        loadMoreSelector: '.btn-load-more',            // Selector for load more button
+        loadMoreText: 'Load More',                      // Optional: match by text
+        maxLoadMoreClicks: 10,                         // How many times to click
+        loadMoreWaitForSelector: '.deal-card',         // Wait for new items after click
+        containerSelector: 'body',                     // Element to extract content from
+    },
+];
+
+const scraper = new GenericScraper(sitesToScrape);
+const deals = await scraper.scrape();
+```
+
+**Note**: JS-based scraping uses Puppeteer and is slower than HTML-only parsing. Use only for sites that require it.
 
 ### Add Sites Dynamically
 
@@ -129,19 +164,50 @@ This project is a web scraping application designed to fetch and parse data from
 ```
 scraper
 ├── src
-│   ├── index.ts               # Entry point of the application
+│   ├── index.ts                    # Entry point; configures sites and runs scraper
 │   ├── scrapers
-│   │   └── genericScraper.ts  # Contains methods for generic web scraping
+│   │   ├── genericScraper.ts       # HTML pagination, JS rendering, and deal parsing
+│   │   └── siteScrapers.ts         # Site-specific scrapers (SassyMama, CapitaLand, etc.)
 │   ├── parsers
-│   │   └── dealParser.ts      # Parses the scraped data into a structured format
+│   │   └── dealParser.ts           # Extracts deal info: type, dates, merchant, location
 │   ├── utils
-│   │   └── httpClient.ts      # Utility for making HTTP requests
+│   │   └── httpClient.ts           # HTTP client with retry logic
 │   └── types
-│       └── index.ts           # Defines data structures used in the application
-├── package.json                # npm configuration file
-├── tsconfig.json              # TypeScript configuration file
-└── README.md                   # Documentation for the project
+│       └── index.ts                # TypeScript interfaces: Deal, DealSite
+├── dist                            # Compiled JavaScript (generated)
+├── output                          # Generated JSON files (git-ignored)
+├── package.json                    # npm configuration & dependencies
+├── tsconfig.json                   # TypeScript configuration
+└── README.md                       # This file
 ```
+
+## Scraper Architecture
+
+### HTML Parsing
+- **scrapeWithHtmlPagination**: Fetches a page, extracts deals via pattern matching, follows pagination links
+- **parseDealsFromHtml**: Uses Cheerio to find deal patterns in HTML content
+
+### JavaScript Rendering
+- **scrapeWithJs**: Uses Puppeteer to render a page with JavaScript execution
+- **handleLoadMore**: Clicks "Load More" buttons and waits for new content to appear
+
+### Site-Specific Scrapers
+- **siteScrapers registry**: Maps domains to custom scrapers (e.g., CapitaLand, SassyMama)
+- Allows special handling for complex aggregators with unique HTML structures
+
+## Supported Sites
+
+The scraper is pre-configured with these sites:
+
+1. **MyFave** - HTML pagination
+2. **SassyMama SG** - Custom HTML parser for blog layout
+3. **CapitaLand Deals** - JS-based with Load More button
+4. **AllSGPromo** - HTML pagination
+5. **DiveDeals** - HTML pagination
+6. **SingPromos** - HTML pagination
+7. **GreatDeals SG** - HTML pagination
+
+Add or modify sites in [src/index.ts](src/index.ts).
 
 ## Installation
 
