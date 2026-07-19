@@ -19,6 +19,11 @@ export interface DealSite {
     category: string; // e.g., 'food', 'general', 'travel'
 
     /**
+     * Optional human-readable note from the source registry.
+     */
+    notes?: string;
+
+    /**
      * Optional CSS selector to follow pagination links for multi-page deal listings.
      * If provided, the scraper will try to follow "next" pages to collect all deals.
      */

@@ -1,52 +1,296 @@
 {
-  "general_deal_aggregators": [
-    "https://singpromos.com/tag/1-for-1/",
-    "https://www.allsgpromo.com/1-for-1-promotion-deals/",
-    "https://sgdtips.com/deals/1-for-1/",
-    "https://www.whynotdeals.com/articles/1-for-1-deals-singapore",
-    "https://www.whynotdeals.com/articles",
-    "https://www.allsingaporedeals.com/",
-    "https://www.allsgpromo.com/",
-    "https://littlebigreddot.com/",
-    "https://misslobang.com/"
-  ],
-  "attractions_and_activities_specific": [
-    "https://sgdtips.com/deals/local-activities/",
-    "https://www.allsingaporedeals.com/search/label/Attractions",
-    "https://www.sassymamasg.com/play-deals-promo-codes-discounts-attractions-dining/",
-    "https://thesmartlocal.com/read/1-for-1-promotions/"
-  ],
-  "editorial_blogs_and_media": [
-    "https://www.sassymamasg.com/play-deals-promo-codes-discounts-attractions-dining/",
-    "https://thesmartlocal.com/read/1-for-1-promotions/",
-    "https://eatbook.sg/1-for-1-buffet-2026/",
-    "https://www.whynotdeals.com/articles/1-for-1-deals-singapore",
-    "https://www.whynotdeals.com/articles/best-1-for-1-dining-deals-singapore/",
-    "https://misslobang.com/article/best-1-for-1-dining-deals-singapore-july-2026",
-    "https://misslobang.com/article/best-1-for-1-value-dining-deals-singapore-june-2026",
-    "https://littlebigreddot.com/18-best-deals-in-singapore-this-week-mcdonalds-1-for-1-pizza-cheese-pull-isetan-final-days-more-21-27-april-2026"
-  ],
-  "credit_card_and_bank_promo_pages": [
-    "https://www.dbs.com.sg/personal/promotion/cards-wonderful-dining",
-    "https://pibenets.uob.com.sg/assets/pdfs/personal/promotions/1-for1-deals.pdf",
-    "https://www.singsaver.com.sg/credit-card/blog/1-for-1-buffet-dining-promotions-singapore",
-    "https://blog.moneysmart.sg/dining/best-1-for-1-buffet-dining-promotions-singapore"
-  ],
-  "social_and_user_generated": [
-    "https://t.me/SGFoodDeals",
-    "https://t.me/sgfooddeals",
-    "https://www.reddit.com/r/singapore/",
-    "https://www.reddit.com/r/singaporefi/",
-    "https://www.instagram.com/sgdealsandfreebies/"
-  ],
-  "deal_apps_and_voucher_platforms": [
-    "ENTERTAINER_app",
-    "https://www.lemon8-app.com/@a.82791.d/7351572132142268930?region=sg"
-  ],
-  "directories_and_listings": [
-    "https://www.streetdirectory.com/businessfinder/company/11346/1_For_1_Deals/S/"
-  ],
-  "open_data_and_dev_projects": [
-    "https://github.com/tongrhj/lickilicky"
-  ]
+  "sources": {
+    "myfave_home": {
+      "name": "MyFave",
+      "url": "https://myfave.com/sg",
+      "scrapeMode": "html",
+      "notes": "Current configured target; generic HTML pagination."
+    },
+    "capitaland_deals": {
+      "name": "CapitaLand Deals",
+      "url": "https://www.capitaland.com/sg/en/shop/malls/deals.html",
+      "scrapeMode": "js",
+      "scraperKey": "capitaland.com",
+      "notes": "JS-rendered with Load More; handled by a custom scraper."
+    },
+    "dive_deals_home": {
+      "name": "DiveDeals",
+      "url": "https://divedeals.sg/",
+      "scrapeMode": "html",
+      "notes": "Current configured target; generic HTML pagination."
+    },
+    "greatdeals_home": {
+      "name": "GreatDeals SG",
+      "url": "https://www.greatdeals.com.sg/",
+      "scrapeMode": "html",
+      "notes": "Current configured target; generic HTML pagination."
+    },
+    "allsgpromo_1_for_1": {
+      "name": "AllSGPromo 1-for-1",
+      "url": "https://www.allsgpromo.com/1-for-1-promotion-deals/",
+      "scrapeMode": "html",
+      "notes": "Static HTML promotion listing."
+    },
+    "allsgpromo_home": {
+      "name": "AllSGPromo",
+      "url": "https://www.allsgpromo.com/",
+      "scrapeMode": "html",
+      "notes": "Homepage reference; generic HTML."
+    },
+    "singpromos_1_for_1": {
+      "name": "SingPromos 1-for-1",
+      "url": "https://singpromos.com/tag/1-for-1/",
+      "scrapeMode": "html",
+      "notes": "Static HTML tag page."
+    },
+    "sgdtips_1_for_1": {
+      "name": "SGD Tips 1-for-1",
+      "url": "https://sgdtips.com/deals/1-for-1/",
+      "scrapeMode": "html",
+      "notes": "Static HTML aggregation page."
+    },
+    "sgdtips_activities": {
+      "name": "SGD Tips Local Activities",
+      "url": "https://sgdtips.com/deals/local-activities/",
+      "scrapeMode": "html",
+      "notes": "Static HTML activities page."
+    },
+    "whynotdeals_1_for_1": {
+      "name": "WhyNotDeals 1-for-1",
+      "url": "https://www.whynotdeals.com/articles/1-for-1-deals-singapore",
+      "scrapeMode": "html",
+      "notes": "Static HTML article page."
+    },
+    "whynotdeals_best_dining": {
+      "name": "WhyNotDeals Best Dining",
+      "url": "https://www.whynotdeals.com/articles/best-1-for-1-dining-deals-singapore/",
+      "scrapeMode": "html",
+      "notes": "SSR-backed article page."
+    },
+    "allsingaporedeals_home": {
+      "name": "AllSingaporeDeals",
+      "url": "https://www.allsingaporedeals.com/",
+      "scrapeMode": "html",
+      "notes": "Homepage reference; generic HTML."
+    },
+    "allsingaporedeals_attractions": {
+      "name": "AllSingaporeDeals Attractions",
+      "url": "https://www.allsingaporedeals.com/search/label/Attractions",
+      "scrapeMode": "html",
+      "notes": "Attractions-specific listing page."
+    },
+    "sassymama_deals": {
+      "name": "SassyMama SG",
+      "url": "https://www.sassymamasg.com/play-deals-promo-codes-discounts-attractions-dining/",
+      "scrapeMode": "html",
+      "scraperKey": "sassymamasg.com",
+      "notes": "Custom blog layout; used for both general and attractions categories."
+    },
+    "thesmartlocal_promotions": {
+      "name": "The Smart Local Promotions",
+      "url": "https://thesmartlocal.com/read/1-for-1-promotions/",
+      "scrapeMode": "html",
+      "notes": "Editorial promotions article."
+    },
+    "eatbook_buffet_2026": {
+      "name": "Eatbook Buffet 2026",
+      "url": "https://eatbook.sg/1-for-1-buffet-2026/",
+      "scrapeMode": "html",
+      "notes": "Editorial article page."
+    },
+    "littlebigreddot_weekly": {
+      "name": "Little Big Red Dot",
+      "url": "https://littlebigreddot.com/18-best-deals-in-singapore-this-week-mcdonalds-1-for-1-pizza-cheese-pull-isetan-final-days-more-21-27-april-2026",
+      "scrapeMode": "html",
+      "notes": "Weekly curated deals article."
+    },
+    "littlebigreddot_home": {
+      "name": "Little Big Red Dot",
+      "url": "https://littlebigreddot.com/",
+      "scrapeMode": "html",
+      "notes": "Homepage reference."
+    },
+    "misslobang_search": {
+      "name": "Miss Lobang Search",
+      "url": "https://www.misslobang.com/search?q=1%20for%201",
+      "scrapeMode": "js",
+      "notes": "JS-rendered search page."
+    },
+    "misslobang_home": {
+      "name": "Miss Lobang",
+      "url": "https://misslobang.com/",
+      "scrapeMode": "html",
+      "notes": "Homepage reference."
+    },
+    "misslobang_july_2026": {
+      "name": "Miss Lobang July 2026",
+      "url": "https://misslobang.com/article/best-1-for-1-dining-deals-singapore-july-2026",
+      "scrapeMode": "html",
+      "notes": "Editorial dining deals article."
+    },
+    "misslobang_june_2026": {
+      "name": "Miss Lobang June 2026",
+      "url": "https://misslobang.com/article/best-1-for-1-value-dining-deals-singapore-june-2026",
+      "scrapeMode": "html",
+      "notes": "Editorial dining deals article."
+    },
+    "dbs_wonderful_dining": {
+      "name": "DBS Wonderful Dining",
+      "url": "https://www.dbs.com.sg/personal/promotion/cards-wonderful-dining",
+      "scrapeMode": "html",
+      "notes": "SSR-backed bank promotion page."
+    },
+    "uob_pdf_deals": {
+      "name": "UOB 1-for-1 Deals PDF",
+      "url": "https://pibenets.uob.com.sg/assets/pdfs/personal/promotions/1-for1-deals.pdf",
+      "scrapeMode": "pdf",
+      "notes": "PDF asset; keep as a registry entry until PDF extraction is added."
+    },
+    "singsaver_buffet": {
+      "name": "SingSaver Buffet Promotions",
+      "url": "https://www.singsaver.com.sg/credit-card/blog/1-for-1-buffet-dining-promotions-singapore",
+      "scrapeMode": "html",
+      "notes": "SSR-backed credit card promotion article."
+    },
+    "moneysmart_buffet": {
+      "name": "MoneySmart Buffet Promotions",
+      "url": "https://blog.moneysmart.sg/dining/best-1-for-1-buffet-dining-promotions-singapore",
+      "scrapeMode": "js",
+      "notes": "JS-rendered page with Cloudflare challenge."
+    },
+    "telegram_sgfooddeals": {
+      "name": "SG Food Deals Telegram",
+      "url": "https://t.me/sgfooddeals",
+      "aliases": ["https://t.me/SGFoodDeals"],
+      "scrapeMode": "html",
+      "notes": "Static metadata page; message scraping is not currently implemented."
+    },
+    "reddit_singapore": {
+      "name": "Reddit Singapore",
+      "url": "https://www.reddit.com/r/singapore/",
+      "scrapeMode": "html",
+      "notes": "Community discussion source."
+    },
+    "reddit_singaporefi": {
+      "name": "Reddit SingaporeFI",
+      "url": "https://www.reddit.com/r/singaporefi/",
+      "scrapeMode": "html",
+      "notes": "Community discussion source."
+    },
+    "instagram_sgdealsandfreebies": {
+      "name": "Instagram SG Deals and Freebies",
+      "url": "https://www.instagram.com/sgdealsandfreebies/",
+      "scrapeMode": "js",
+      "notes": "Login-gated and JS-rendered."
+    },
+    "lemon8_sgdeals": {
+      "name": "Lemon8 SG Deals",
+      "url": "https://www.lemon8-app.com/discover/1%20for%201?region=sg&pid=website_seo_from_sug",
+      "scrapeMode": "js",
+      "notes": "React SPA page. Appears in both social and app categories."
+    },
+    "tiktok_singapore_deals": {
+      "name": "TikTok Singapore Deals Search",
+      "url": "https://www.tiktok.com/search?q=Buy%201%20Get%201%20Free%20Singapore",
+      "scrapeMode": "js",
+      "notes": "JS-rendered and bot-protected."
+    },
+    "entertainer_app": {
+      "name": "ENTERTAINER",
+      "scrapeMode": "manual",
+      "notes": "App-only reference; not currently scraped by the web scraper."
+    },
+    "streetdirectory_1_for_1": {
+      "name": "Streetdirectory 1-for-1 Deals",
+      "url": "https://www.streetdirectory.com/businessfinder/company/11346/1_For_1_Deals/S/",
+      "scrapeMode": "html",
+      "notes": "Directory/listing source."
+    },
+    "lickilicky_open_data": {
+      "name": "Lickilicky Open Data",
+      "url": "https://github.com/tongrhj/lickilicky",
+      "scrapeMode": "manual",
+      "notes": "Open-data/dev-project reference; not currently scraped."
+    }
+  },
+  "categories": {
+    "general_deal_aggregators": {
+      "description": "General deal aggregators, broad 1-for-1 pages, and homepage references.",
+      "sourceIds": [
+        "myfave_home",
+        "capitaland_deals",
+        "dive_deals_home",
+        "greatdeals_home",
+        "allsgpromo_1_for_1",
+        "allsgpromo_home",
+        "singpromos_1_for_1",
+        "sgdtips_1_for_1",
+        "whynotdeals_1_for_1",
+        "allsingaporedeals_home",
+        "littlebigreddot_home",
+        "misslobang_search"
+      ]
+    },
+    "attractions_and_activities_specific": {
+      "description": "Attractions, activities, and entertainment-specific deal pages.",
+      "sourceIds": [
+        "sgdtips_activities",
+        "allsingaporedeals_attractions",
+        "sassymama_deals",
+        "thesmartlocal_promotions"
+      ]
+    },
+    "editorial_blogs_and_media": {
+      "description": "Editorial blogs, listicles, and media articles.",
+      "sourceIds": [
+        "sassymama_deals",
+        "thesmartlocal_promotions",
+        "eatbook_buffet_2026",
+        "whynotdeals_1_for_1",
+        "whynotdeals_best_dining",
+        "misslobang_july_2026",
+        "misslobang_june_2026",
+        "littlebigreddot_weekly"
+      ]
+    },
+    "credit_card_and_bank_promo_pages": {
+      "description": "Bank, credit card, and issuer promotion pages.",
+      "sourceIds": [
+        "dbs_wonderful_dining",
+        "uob_pdf_deals",
+        "singsaver_buffet",
+        "moneysmart_buffet"
+      ]
+    },
+    "social_and_user_generated": {
+      "description": "Social media, messaging, and community-driven sources.",
+      "sourceIds": [
+        "telegram_sgfooddeals",
+        "reddit_singapore",
+        "reddit_singaporefi",
+        "instagram_sgdealsandfreebies",
+        "lemon8_sgdeals",
+        "tiktok_singapore_deals"
+      ]
+    },
+    "deal_apps_and_voucher_platforms": {
+      "description": "Deal apps, voucher platforms, and app-discoverable sources.",
+      "sourceIds": [
+        "entertainer_app",
+        "lemon8_sgdeals"
+      ]
+    },
+    "directories_and_listings": {
+      "description": "Business directories and searchable listings.",
+      "sourceIds": [
+        "streetdirectory_1_for_1"
+      ]
+    },
+    "open_data_and_dev_projects": {
+      "description": "Open-source or developer-maintained references.",
+      "sourceIds": [
+        "lickilicky_open_data"
+      ]
+    }
+  }
 }

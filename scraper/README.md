@@ -176,7 +176,7 @@ scraper
 │       └── index.ts                # TypeScript interfaces: Deal, DealSite
 ├── dist                            # Compiled JavaScript (generated)
 ├── output                          # Generated JSON files (git-ignored)
-├── sources.json                    # Deal source categories and URLs (data file)
+├── sources.json                    # Normalized source registry and category references
 ├── package.json                    # npm configuration & dependencies
 ├── tsconfig.json                   # TypeScript configuration
 └── README.md                       # This file
@@ -208,58 +208,40 @@ The scraper is pre-configured with these sites:
 6. **SingPromos** - HTML pagination
 7. **GreatDeals SG** - HTML pagination
 
-Add or modify sites in [src/index.ts](src/index.ts).
+Add or modify sources in [sources.json](sources.json); only add new code in [src/index.ts](src/index.ts) when a source needs a new scraper strategy.
 
-## Available Deal Sources
+## Source Registry
 
-The [sources.json](sources.json) file contains a curated list of deal sources organized by category. These sources can be used to expand the scraper or as reference URLs:
+The [sources.json](sources.json) file is the single source of truth for scrape targets.
 
-| Category | Description | Count |
-|----------|-------------|-------|
-| **general_deal_aggregators** | General deal aggregation sites | 9 |
-| **attractions_and_activities_specific** | Attractions, activities, and entertainment deals | 4 |
-| **editorial_blogs_and_media** | Editorial blogs and media publications | 8 |
-| **credit_card_and_bank_promo_pages** | Bank and credit card promotion pages | 4 |
-| **social_and_user_generated** | Social media and user-generated content | 5 |
-| **deal_apps_and_voucher_platforms** | Mobile apps and voucher platforms | 2 |
-| **directories_and_listings** | Business directories and listings | 1 |
-| **open_data_and_dev_projects** | Open-source and developer projects | 1 |
+It uses a normalized structure:
 
-### Using Sources for Expansion
+- `sources` holds each source once, with metadata like `url`, `scrapeMode`, and `notes`
+- `categories` points to those sources by ID so the same source can appear in multiple categories without duplication
+- `notes` replaces inline JSON comments, since JSON itself does not support comments
 
-To add more sites to the scraper:
+`index.ts` reads this registry, converts the scrapeable entries into `DealSite[]`, and skips entries marked as `manual` or `pdf` until support exists.
 
-1. Review [sources.json](sources.json) for target URLs
-2. Add entries to the `sitesToScrape` array in [src/index.ts](src/index.ts)
-3. If a site has a unique layout, create a custom scraper in [src/scrapers/siteScrapers.ts](src/scrapers/siteScrapers.ts)
-4. Register the custom scraper in the `siteScrapers` export
+### Recommended Workflow
 
-**Example**: To add SingPromos with custom parsing:
+1. Add or update a source in `sources.json` under `sources`
+2. Reference that source ID from one or more category lists under `categories`
+3. Put human-readable hints in `notes` instead of inline comments
+4. Let `index.ts` build the runtime site list automatically
 
-```typescript
-// Step 1: Add to sitesToScrape
-{
-    name: 'SingPromos',
-    url: 'https://singpromos.com/tag/1-for-1/',
-    category: 'general',
-    scraperKey: 'singpromos.com',
-}
+### Category Filtering
 
-// Step 2: Create custom scraper in siteScrapers.ts
-export async function scrapeSingPromos(params: {
-    site: DealSite;
-    httpClient: HttpClient;
-    dealParser: DealParser;
-}): Promise<Deal[]> {
-    // Custom parsing logic here
-}
+You can scrape only one category by passing it as the first CLI argument:
 
-// Step 3: Register in siteScrapers export
-export const siteScrapers: Record<string, SiteScraper> = {
-    'singpromos.com': scrapeSingPromos,
-    // ... other scrapers
-};
+```bash
+npm start -- general_deal_aggregators
 ```
+
+That keeps the runtime configuration in sync with the registry instead of requiring a second hardcoded list in `index.ts`.
+
+### When to Add Custom Scrapers
+
+If a source needs special navigation or HTML parsing, add a handler in [src/scrapers/siteScrapers.ts](src/scrapers/siteScrapers.ts) and point the source entry at it via `scraperKey`.
 
 ## Installation
 

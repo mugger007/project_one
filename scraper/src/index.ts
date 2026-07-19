@@ -4,58 +4,134 @@ import { DealSite } from './types';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const main = async () => {
-    // ============================================================
-    // Configure sites to scrape here
-    // ============================================================
-    const sitesToScrape: DealSite[] = [
-        // Add your deal pages here. Use full pages containing the deal text,
-        // not just listing/category pages.
-        // { name: 'Site Name', url: 'https://example.com/deals-page', category: 'food' },
+type ScrapeMode = 'html' | 'js' | 'pdf' | 'manual';
 
-        // Aggregator sites (custom parsing + pagination support)
-        {
-            name: 'MyFave',
-            url: 'https://myfave.com/sg',
-            category: 'general',
-        },
-        {
-            name: 'SassyMama SG',
-            url: 'https://www.sassymamasg.com/play-deals-promo-codes-discounts-attractions-dining/',
-            category: 'general',
-        },
-        {
-            name: 'CapitaLand Deals',
-            url: 'https://www.capitaland.com/sg/en/shop/malls/deals.html',
-            category: 'general',
-            useJsScraping: true,
-            loadMoreSelector: '.cmp-cta__text',
-            loadMoreText: 'Load More',
-            containerSelector: 'body',
-            maxLoadMoreClicks: 20,
-            loadMoreWaitForSelector: '.cmp-listing-card--deal',
-        },
-        {
-            name: 'AllSGPromo',
-            url: 'https://www.allsgpromo.com/1-for-1-promotion-deals/',
-            category: 'general',
-        },
-        {
-            name: 'DiveDeals',
-            url: 'https://divedeals.sg/',
-            category: 'general',
-        },
-        {
-            name: 'SingPromos',
-            url: 'https://singpromos.com/bydate/ontoday/',
-            category: 'general',
-        },
-        {
-            name: 'GreatDeals SG',
-            url: 'https://www.greatdeals.com.sg/',
-            category: 'general',
-        },
-    ];
+interface SourceDefinition {
+    name: string;
+    url?: string;
+    scrapeMode?: ScrapeMode;
+    notes?: string;
+    scraperKey?: string;
+    paginationSelector?: string;
+    maxPages?: number;
+    loadMoreSelector?: string;
+    loadMoreText?: string;
+    containerSelector?: string;
+    maxLoadMoreClicks?: number;
+    loadMoreWaitForSelector?: string;
+    aliases?: string[];
+}
+
+interface SourceCategoryDefinition {
+    description?: string;
+    sourceIds: string[];
+}
+
+interface SourceRegistryFile {
+    sources: Record<string, SourceDefinition>;
+    categories: Record<string, SourceCategoryDefinition>;
+}
+
+function loadSourceRegistry(): SourceRegistryFile {
+    const registryPath = path.join(__dirname, '..', 'sources.json');
+    const raw = fs.readFileSync(registryPath, 'utf-8');
+    return JSON.parse(raw) as SourceRegistryFile;
+}
+
+function isScrapeableSource(source: SourceDefinition): boolean {
+    return source.scrapeMode !== 'pdf' && source.scrapeMode !== 'manual';
+}
+
+function buildSitesToScrape(registry: SourceRegistryFile, category?: string): DealSite[] {
+    const selectedCategories = category ? [category] : Object.keys(registry.categories);
+    const seenSourceIds = new Set<string>();
+    const sites: DealSite[] = [];
+
+    for (const categoryKey of selectedCategories) {
+        const categoryDefinition = registry.categories[categoryKey];
+
+        if (!categoryDefinition) {
+            console.warn(`[WARN] Unknown source category: ${categoryKey}`);
+            continue;
+        }
+
+        for (const sourceId of categoryDefinition.sourceIds) {
+            if (seenSourceIds.has(sourceId)) {
+                continue;
+            }
+
+            seenSourceIds.add(sourceId);
+            const source = registry.sources[sourceId];
+
+            if (!source) {
+                console.warn(`[WARN] Missing source definition for id: ${sourceId}`);
+                continue;
+            }
+
+            if (!source.url) {
+                console.log(`[INFO] Skipping ${source.name}: no URL configured`);
+                continue;
+            }
+
+            if (!isScrapeableSource(source)) {
+                console.log(`[INFO] Skipping ${source.name}: ${source.notes ?? `unsupported mode (${source.scrapeMode ?? 'unknown'})`}`);
+                continue;
+            }
+
+            const site: DealSite = {
+                name: source.name,
+                url: source.url,
+                category: categoryKey,
+                notes: source.notes,
+            };
+
+            if (source.scraperKey) {
+                site.scraperKey = source.scraperKey;
+            }
+
+            if (source.paginationSelector) {
+                site.paginationSelector = source.paginationSelector;
+            }
+
+            if (source.maxPages !== undefined) {
+                site.maxPages = source.maxPages;
+            }
+
+            if (source.scrapeMode === 'js') {
+                site.useJsScraping = true;
+            }
+
+            if (source.loadMoreSelector) {
+                site.loadMoreSelector = source.loadMoreSelector;
+            }
+
+            if (source.loadMoreText) {
+                site.loadMoreText = source.loadMoreText;
+            }
+
+            if (source.containerSelector) {
+                site.containerSelector = source.containerSelector;
+            }
+
+            if (source.maxLoadMoreClicks !== undefined) {
+                site.maxLoadMoreClicks = source.maxLoadMoreClicks;
+            }
+
+            if (source.loadMoreWaitForSelector) {
+                site.loadMoreWaitForSelector = source.loadMoreWaitForSelector;
+            }
+
+            sites.push(site);
+        }
+    }
+
+    return sites;
+}
+
+const main = async () => {
+    const registry = loadSourceRegistry();
+    const requestedCategory = process.argv.slice(2).find(arg => !arg.startsWith('-'));
+    const sitesToScrape = buildSitesToScrape(registry, requestedCategory);
 
     // ============================================================
     // Initialize scraper with sites
@@ -69,10 +145,15 @@ const main = async () => {
     console.log('[INFO] For best results, use URLs of pages with full deal text.');
     console.log('[INFO] Refer to README.md for usage guidance.\n');
 
+    if (requestedCategory) {
+        console.log(`[INFO] Category filter: ${requestedCategory}`);
+    }
+
     const sites = scraper.getSites();
-    console.log(`[INFO] Configured ${sites.length} site(s) to scrape:`);
+    console.log(`[INFO] Loaded ${sites.length} scrapeable site(s) from ${Object.keys(registry.categories).length} category group(s):`);
     sites.forEach((site, i) => {
-        console.log(`  ${i + 1}. ${site.name.padEnd(20)} [${site.category}] ${site.url}`);
+        const noteSuffix = site.notes ? ` - ${site.notes}` : '';
+        console.log(`  ${i + 1}. ${site.name.padEnd(24)} [${site.category}] ${site.url}${noteSuffix}`);
     });
 
     try {
@@ -80,8 +161,8 @@ const main = async () => {
         console.log('Starting scraping...');
         console.log('='.repeat(70));
 
-        // Scrape all configured sites
-        const deals = await scraper.scrape();
+        // Scrape all configured sites, optionally filtered by category
+        const deals = requestedCategory ? await scraper.scrape(requestedCategory) : await scraper.scrape();
         
         // Or scrape by category only:
         // const deals = await scraper.scrape('food');
