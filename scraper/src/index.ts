@@ -82,6 +82,7 @@ function buildSitesToScrape(registry: SourceRegistryFile, category?: string): De
                 name: source.name,
                 url: source.url,
                 category: categoryKey,
+                sourceId: sourceId,
                 notes: source.notes,
             };
 
@@ -173,10 +174,9 @@ const main = async () => {
             fs.mkdirSync(outputDir, { recursive: true });
         }
         
-        // Save all deals to one file including site names
+        // Save all deals to one file
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-        const siteNames = sites.map(s => s.name.replace(/\s+/g, '_')).join('_');
-        const fileName = `deals_${timestamp}_${siteNames}.json`;
+        const fileName = `deals_${timestamp}.json`;
         const outputPath = path.join(outputDir, fileName);
         fs.writeFileSync(outputPath, JSON.stringify(deals, null, 2), 'utf-8');
         

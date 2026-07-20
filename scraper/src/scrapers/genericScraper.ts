@@ -5,14 +5,39 @@ import { siteScrapers } from './siteScrapers';
 import * as cheerio from 'cheerio';
 import puppeteer, { Page } from 'puppeteer';
 
+export function getDealSourceMetadata(site: DealSite) {
+    return {
+        source_id: site.sourceId ?? site.name,
+        source_name: site.name,
+        source_category: site.category,
+    };
+}
+
+export function getRequestOptionsForSite(site: DealSite): {
+    browserFallback?: boolean;
+    preRequestDelayMs?: number;
+} {
+    const hostname = new URL(site.url).hostname.replace(/^www\./, '');
+
+    if (hostname === 'greatdeals.com.sg' || hostname === 'allsgpromo.com' || hostname === 'blog.moneysmart.sg') {
+        return {
+            browserFallback: true,
+            preRequestDelayMs: 2000,
+        };
+    }
+
+    return {};
+}
+
 /**
  * Simple deal parsing for sites without custom scrapers.
  * Looks for deal patterns in HTML content.
  */
-export function parseDealsFromHtml($: cheerio.Root, sourceUrl: string, dealParser: DealParser): Deal[] {
+export function parseDealsFromHtml($: cheerio.Root, sourceUrl: string, dealParser: DealParser, site: DealSite): Deal[] {
     const deals: Deal[] = [];
     const domain = new URL(sourceUrl).hostname;
     const bodyText = $('body').text();
+    const sourceMetadata = getDealSourceMetadata(site);
 
     if (dealParser.validateDeal(bodyText)) {
         const validityDates = dealParser.extractValidityDates(bodyText);
@@ -37,6 +62,7 @@ export function parseDealsFromHtml($: cheerio.Root, sourceUrl: string, dealParse
             url: dealUrl,
             description: bodyText.substring(0, 500),
             source_url: domain,
+            ...sourceMetadata,
             deal_image: null,
         });
     }
@@ -56,6 +82,7 @@ export async function scrapeWithHtmlPagination(params: {
     const maxPages = site.maxPages ?? 5;
     const visited = new Set<string>();
     const allDeals: Deal[] = [];
+    const requestOptions = getRequestOptionsForSite(site);
 
     let currentUrl = site.url;
     for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
@@ -68,14 +95,14 @@ export async function scrapeWithHtmlPagination(params: {
 
         let html: string;
         try {
-            html = await httpClient.getText(currentUrl);
+            html = await httpClient.getText(currentUrl, requestOptions);
         } catch (error) {
             console.error(`[ERROR] [${site.name}] Failed to fetch page ${currentUrl}:`, error);
             break;
         }
 
         const $ = cheerio.load(html);
-        const deals = parseDealsFromHtml($, currentUrl, dealParser);
+        const deals = parseDealsFromHtml($, currentUrl, dealParser, site);
         allDeals.push(...deals);
 
         const nextUrl = findNextPageUrl(html, currentUrl, site.paginationSelector);
@@ -163,34 +190,47 @@ export async function handleLoadMore(page: Page, options: { loadMoreSelector?: s
         waitForNewItemsSelector,
     } = options;
 
+    const fallbackSelector = '.load-more, .btn-load-more, [class*="load"][class*="more"], a, button, [role="button"]';
+    const selectorsToTry = Array.from(new Set([loadMoreSelector, fallbackSelector].filter(Boolean)));
+
     let clicks = 0;
 
     while (clicks < maxClicks) {
         try {
-            // Wait for the load-more control to appear (if it exists)
-            await page.waitForSelector(loadMoreSelector, { timeout: 5000 });
+            let clicked = false;
 
-            // Click the load more control (optionally matching on text)
-            const clicked = await page.evaluate(
-                ({ selector, text }) => {
-                    const nodes = Array.from(document.querySelectorAll(selector));
-                    if (nodes.length === 0) return false;
+            for (const selector of selectorsToTry) {
+                try {
+                    await page.waitForSelector(selector, { timeout: 2500 });
+                } catch {
+                    continue;
+                }
 
-                    const match = text
-                        ? nodes.find(n => (n.textContent || '').toLowerCase().includes(text.toLowerCase()))
-                        : nodes[0];
+                clicked = await page.evaluate(
+                    ({ selector, text }) => {
+                        const nodes = Array.from(document.querySelectorAll(selector));
+                        if (nodes.length === 0) return false;
 
-                    if (!match) return false;
+                        const normalizedText = text?.toLowerCase();
+                        const match = normalizedText
+                            ? nodes.find(n => (n.textContent || '').toLowerCase().includes(normalizedText))
+                            : nodes[0];
 
-                    // If already hidden/not visible, stop
-                    const style = window.getComputedStyle(match as Element);
-                    if (style.display === 'none' || style.visibility === 'hidden') return false;
+                        if (!match) return false;
 
-                    (match as HTMLElement).click();
-                    return true;
-                },
-                { selector: loadMoreSelector, text: loadMoreText }
-            );
+                        const style = window.getComputedStyle(match as Element);
+                        if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+                        (match as HTMLElement).click();
+                        return true;
+                    },
+                    { selector, text: loadMoreText }
+                );
+
+                if (clicked) {
+                    break;
+                }
+            }
 
             if (!clicked) {
                 console.log('[DEBUG] No clickable load-more element found');
@@ -294,10 +334,24 @@ const deals = await this.scrapeSite(site);
     async scrapePage(url: string): Promise<Deal[]> {
         try {
             console.log(`[DEBUG] Scraping: ${url}`);
-            const html = await this.httpClient.getText(url);
+            const html = await this.httpClient.getText(url, {
+                browserFallback: true,
+                preRequestDelayMs: 1000,
+            });
             console.log(`[DEBUG] Received HTML (length: ${html.length} chars)`);
             const $ = cheerio.load(html);
-            const deals = parseDealsFromHtml($, url, this.dealParser);
+            const hostname = new URL(url).hostname.replace(/^www\./, '');
+            const deals = parseDealsFromHtml(
+                $,
+                url,
+                this.dealParser,
+                {
+                    name: hostname,
+                    url,
+                    category: 'uncategorized',
+                    sourceId: hostname,
+                }
+            );
             console.log(`[DEBUG] Found ${deals.length} deals`);
             if (deals.length > 0) {
                 console.log(`[DEBUG] Sample deal: ${deals[0].description.substring(0, 50)}...`);
@@ -329,7 +383,7 @@ const deals = await this.scrapeSite(site);
             console.log(`[DEBUG] Using JS-based scraper for: ${site.name}`);
             const html = await scrapeWithJs(site.url);
             const $ = cheerio.load(html);
-            return parseDealsFromHtml($, site.url, this.dealParser);
+            return parseDealsFromHtml($, site.url, this.dealParser, site);
         }
 
         console.log(`[DEBUG] Using default HTML scraper for: ${site.name}`);

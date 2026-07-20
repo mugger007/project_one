@@ -3,7 +3,7 @@ import puppeteer from 'puppeteer';
 import { Deal, DealSite } from '../types';
 import { HttpClient } from '../utils/httpClient';
 import { DealParser } from '../parsers/dealParser';
-import { scrapeWithHtmlPagination, handleLoadMore, parseDealsFromHtml } from './genericScraper';
+import { getDealSourceMetadata, getRequestOptionsForSite, scrapeWithHtmlPagination, handleLoadMore, parseDealsFromHtml } from './genericScraper';
 
 export type SiteScraper = (params: {
     site: DealSite;
@@ -30,7 +30,10 @@ export async function scrapeSassyMamaSG(params: {
     let html: string;
 
     try {
-        html = await httpClient.getText(site.url);
+        html = await httpClient.getText(site.url, {
+            ...getRequestOptionsForSite(site),
+            preRequestDelayMs: 1000,
+        });
     } catch (error) {
         console.error(`[ERROR] [${site.name}] Failed to fetch page ${site.url}:`, error);
         return [];
@@ -38,6 +41,7 @@ export async function scrapeSassyMamaSG(params: {
 
     const $ = cheerio.load(html);
     const domain = new URL(site.url).hostname;
+    const sourceMetadata = getDealSourceMetadata(site);
     const deals: Deal[] = [];
 
     $('h3').each((_, h3Elem) => {
@@ -112,6 +116,7 @@ export async function scrapeSassyMamaSG(params: {
             url: dealUrl,
             description: description,
             source_url: domain,
+            ...sourceMetadata,
             deal_image: dealImage,
         });
     });
@@ -147,6 +152,7 @@ export async function scrapeCapitaLand(params: {
         // Handle Load More
         await handleLoadMore(page, {
             loadMoreSelector: site.loadMoreSelector,
+            loadMoreText: site.loadMoreText,
             maxClicks: site.maxLoadMoreClicks
         });
 
@@ -155,6 +161,7 @@ export async function scrapeCapitaLand(params: {
         const $ = cheerio.load(html);
         const deals: Deal[] = [];
         const domain = new URL(site.url).hostname;
+        const sourceMetadata = getDealSourceMetadata(site);
 
         // Parse each deal card
         $('.cmp-listing-card--deal').each((_, card) => {
@@ -206,6 +213,7 @@ export async function scrapeCapitaLand(params: {
                 url: fullUrl,
                 description: description,
                 source_url: domain,
+                ...sourceMetadata,
                 deal_image: dealImage,
             });
         });

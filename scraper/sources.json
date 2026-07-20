@@ -2,16 +2,18 @@
   "sources": {
     "myfave_home": {
       "name": "MyFave",
-      "url": "https://myfave.com/sg",
+      "url": "https://myfave.com/search?query=1%20FOR%201",
       "scrapeMode": "html",
-      "notes": "Current configured target; generic HTML pagination."
+      "notes": "Updated to a working search URL that should return 1-for-1 results."
     },
     "capitaland_deals": {
       "name": "CapitaLand Deals",
       "url": "https://www.capitaland.com/sg/en/shop/malls/deals.html",
       "scrapeMode": "js",
       "scraperKey": "capitaland.com",
-      "notes": "JS-rendered with Load More; handled by a custom scraper."
+      "loadMoreSelector": "a:has(span.cmp-cta__text)",
+      "loadMoreText": "Load More",
+      "notes": "JS-rendered with Load More; custom selector targets the CTA text span."
     },
     "dive_deals_home": {
       "name": "DiveDeals",
@@ -23,19 +25,19 @@
       "name": "GreatDeals SG",
       "url": "https://www.greatdeals.com.sg/",
       "scrapeMode": "html",
-      "notes": "Current configured target; generic HTML pagination."
+      "notes": "Currently blocked with 403. May require headless browser or residential proxy for reliable access."
     },
     "allsgpromo_1_for_1": {
       "name": "AllSGPromo 1-for-1",
       "url": "https://www.allsgpromo.com/1-for-1-promotion-deals/",
       "scrapeMode": "html",
-      "notes": "Static HTML promotion listing."
+      "notes": "Consistently returns 403. Site appears to have strong protection."
     },
     "allsgpromo_home": {
       "name": "AllSGPromo",
       "url": "https://www.allsgpromo.com/",
       "scrapeMode": "html",
-      "notes": "Homepage reference; generic HTML."
+      "notes": "Blocked with 403."
     },
     "singpromos_1_for_1": {
       "name": "SingPromos 1-for-1",
@@ -155,8 +157,8 @@
     "moneysmart_buffet": {
       "name": "MoneySmart Buffet Promotions",
       "url": "https://blog.moneysmart.sg/dining/best-1-for-1-buffet-dining-promotions-singapore",
-      "scrapeMode": "js",
-      "notes": "JS-rendered page with Cloudflare challenge."
+      "scrapeMode": "html",
+      "notes": "Page appears to be scrapable with standard HTML. Changed from JS to HTML to avoid Cloudflare issues."
     },
     "telegram_sgfooddeals": {
       "name": "SG Food Deals Telegram",

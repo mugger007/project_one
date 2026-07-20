@@ -8,6 +8,9 @@ export interface Deal {
     url: string;
     description: string;
     source_url: string;
+    source_id: string;
+    source_name: string;
+    source_category: string;
     deal_image: string | null;
 }
 
@@ -17,6 +20,7 @@ export interface DealSite {
     name: string;
     url: string;
     category: string; // e.g., 'food', 'general', 'travel'
+    sourceId?: string;
 
     /**
      * Optional human-readable note from the source registry.

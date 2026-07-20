@@ -44,7 +44,7 @@ Adjust `src/parsers/dealParser.ts` if you need additional patterns.
 - 📄 **Pagination**: Follows multi-page pagination links automatically
 - 🔄 **Load More Support**: Handles "Load More" buttons and dynamic content
 - ✅ **Deal Validation**: Filters and validates matching patterns
-- 📊 **Structured Output**: JSON output with deal details (merchant, dates, images, location)
+- 📊 **Structured Output**: JSON output with deal details (merchant, dates, images, location, source mapping)
 - 🐛 **Debug Logging**: Comprehensive logging for troubleshooting
 - 🔧 **Custom Scrapers**: Easy to add site-specific parsing logic
 - 🎯 **Categories**: Organize sites by category and scrape selectively
@@ -158,6 +158,8 @@ const deals = await scraper.scrape();
 ## Output
 
 This project is a web scraping application designed to fetch and parse data from various websites based on generic search criteria. It is structured to facilitate easy extension and maintenance.
+
+Generated files are written to `output/` as `deals_<datetime>.json`. Each scraped object includes `source_id`, `source_name`, and `source_category` so results can be traced back to the registry entry that produced them.
 
 ## Project Structure
 
