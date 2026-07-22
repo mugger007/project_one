@@ -33,7 +33,7 @@ export function getRequestOptionsForSite(site: DealSite): {
  * Simple deal parsing for sites without custom scrapers.
  * Looks for deal patterns in HTML content.
  */
-export function parseDealsFromHtml($: cheerio.Root, sourceUrl: string, dealParser: DealParser, site: DealSite): Deal[] {
+export function parseDealsFromHtml($: cheerio.CheerioAPI, sourceUrl: string, dealParser: DealParser, site: DealSite): Deal[] {
     const deals: Deal[] = [];
     const domain = new URL(sourceUrl).hostname;
     const bodyText = $('body').text();
@@ -101,7 +101,7 @@ export async function scrapeWithHtmlPagination(params: {
             break;
         }
 
-        const $ = cheerio.load(html);
+        const $ = cheerio.load(html) as cheerio.CheerioAPI;
         const deals = parseDealsFromHtml($, currentUrl, dealParser, site);
         allDeals.push(...deals);
 
@@ -315,8 +315,9 @@ export class GenericScraper {
             const site = sites[i];
             console.log(`\n[${i + 1}/${sites.length}] ${site.name} (${site.url})`);
 
-const deals = await this.scrapeSite(site);
+            const deals = await this.scrapeSite(site);
             allDeals.push(...deals);
+            console.log(`[INFO] [${site.category}] ${site.name}: found ${deals.length} deal(s)`);
 
             // Be polite - wait between requests
             if (i < sites.length - 1) {
@@ -339,7 +340,7 @@ const deals = await this.scrapeSite(site);
                 preRequestDelayMs: 1000,
             });
             console.log(`[DEBUG] Received HTML (length: ${html.length} chars)`);
-            const $ = cheerio.load(html);
+            const $ = cheerio.load(html) as cheerio.CheerioAPI;
             const hostname = new URL(url).hostname.replace(/^www\./, '');
             const deals = parseDealsFromHtml(
                 $,
@@ -382,7 +383,7 @@ const deals = await this.scrapeSite(site);
         if (site.useJsScraping) {
             console.log(`[DEBUG] Using JS-based scraper for: ${site.name}`);
             const html = await scrapeWithJs(site.url);
-            const $ = cheerio.load(html);
+            const $ = cheerio.load(html) as cheerio.CheerioAPI;
             return parseDealsFromHtml($, site.url, this.dealParser, site);
         }
 
