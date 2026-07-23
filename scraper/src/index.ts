@@ -185,6 +185,24 @@ const main = async () => {
         console.log('='.repeat(70));
         console.log(`Total deals found: ${deals.length}`);
         console.log(`Output file: ${fileName}`);
+
+        const dealsBySource = deals.reduce((acc, deal) => {
+            acc[deal.source_id] = (acc[deal.source_id] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const zeroDealSources = sites.filter(site => {
+            const sourceId = site.sourceId ?? site.name;
+            return !dealsBySource[sourceId];
+        });
+
+        if (zeroDealSources.length > 0) {
+            console.log('\nSources with 0 deals found:');
+            zeroDealSources.forEach(site => {
+                const noteSuffix = site.notes ? ` - ${site.notes}` : '';
+                console.log(`  ${site.name.padEnd(30)} [${site.category}] ${site.url}${noteSuffix}`);
+            });
+        }
         
         if (deals.length > 0) {
             // Group by merchant
